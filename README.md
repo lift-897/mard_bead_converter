@@ -11,7 +11,7 @@
 ### 方式一：在线使用（推荐）
 
 > 开启 GitHub Pages 后访问：
-> `https://你的用户名.github.io/mard_bead_converter/`
+> `https://lift-897.github.io/mard_bead_converter/`
 
 ### 方式二：下载使用
 
