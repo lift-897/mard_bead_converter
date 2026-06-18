@@ -1,0 +1,1142 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mard 拼豆图案生成器</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:'Microsoft YaHei','PingFang SC',sans-serif; background:#f0f2f5; min-height:100vh; }
+.topbar {
+  position:sticky; top:0; z-index:100; background:#fff; border-bottom:1px solid #e0e0e0;
+  padding:10px 20px; display:flex; align-items:center; justify-content:space-between;
+  box-shadow:0 1px 4px rgba(0,0,0,.06);
+}
+.topbar h1 { font-size:20px; font-weight:800; color:#1a1a2e; display:flex; align-items:center; gap:8px; }
+.topbar h1 .badge { font-size:12px; background:#6366f1; color:#fff; padding:2px 8px; border-radius:10px; font-weight:600; }
+.topbar .controls { display:flex; gap:12px; align-items:center; }
+.topbar .controls label { font-size:13px; font-weight:600; color:#475569; white-space:nowrap; }
+.topbar select { padding:6px 12px; border:1px solid #d0d0d0; border-radius:6px; font-size:13px; }
+.topbar .board-dims { display:flex; align-items:center; gap:4px; font-size:13px; font-weight:600; color:#334155; }
+.topbar .board-dims input {
+  width:44px; padding:5px 4px; border:1px solid #d0d0d0; border-radius:6px; font-size:13px; text-align:center;
+}
+.topbar .board-dims .sep { color:#94a3b8; }
+
+.btn-diy {
+  padding:7px 18px; background:linear-gradient(135deg,#f59e0b,#ef4444); color:#fff; border:none;
+  border-radius:20px; font-size:14px; font-weight:700; cursor:pointer; transition:all .15s;
+  margin-left:10px; white-space:nowrap; box-shadow:0 2px 8px rgba(239,68,68,.25);
+}
+.btn-diy:hover { transform:scale(1.04); box-shadow:0 4px 14px rgba(239,68,68,.35); }
+.btn-diy.active { background:linear-gradient(135deg,#6366f1,#8b5cf6); }
+
+.btn-converter {
+  padding:7px 18px; background:#6366f1; color:#fff; border:none;
+  border-radius:20px; font-size:14px; font-weight:700; cursor:pointer; transition:all .15s;
+  white-space:nowrap; margin-left:10px; display:none;
+}
+.btn-converter.visible { display:inline-block; }
+.btn-converter:hover { background:#4f46e5; }
+
+.main-layout { display:flex; height:calc(100vh - 56px); }
+
+.left-panel {
+  width:460px; min-width:460px; background:#fff; border-right:1px solid #e0e0e0;
+  display:flex; flex-direction:column; padding:20px; overflow-y:auto; gap:16px;
+}
+.upload-zone {
+  border:2px dashed #d0d0d0; border-radius:12px; padding:30px 20px; text-align:center;
+  cursor:pointer; transition:all .15s; background:#fafafa;
+}
+.upload-zone:hover, .upload-zone.drag-over { border-color:#6366f1; background:#eef2ff; }
+.upload-zone .icon { font-size:40px; margin-bottom:8px; }
+.upload-zone .text { font-size:14px; color:#64748b; }
+.upload-zone .sub { font-size:11px; color:#94a3b8; margin-top:4px; }
+.upload-zone input[type=file] { display:none; }
+
+.preview-original { display:none; width:100%; max-height:200px; object-fit:contain; border-radius:8px; border:1px solid #e0e0e0; }
+.aspect-info { display:none; background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:14px 16px; font-size:13px; color:#334155; line-height:1.6; }
+.aspect-info.visible { display:block; }
+
+.settings { display:flex; flex-direction:column; gap:8px; }
+.btn-generate {
+  width:100%; padding:12px; background:#6366f1; color:#fff; border:none; border-radius:10px;
+  font-size:15px; font-weight:700; cursor:pointer; transition:all .15s;
+}
+.btn-generate:disabled { background:#c4b5fd; cursor:not-allowed; }
+.btn-generate:not(:disabled):hover { background:#4f46e5; }
+
+.right-panel {
+  flex:1; display:flex; flex-direction:column; overflow:hidden;
+}
+.result-header {
+  display:none; align-items:center; justify-content:space-between; padding:12px 20px;
+  background:#fff; border-bottom:1px solid #e0e0e0; flex-shrink:0;
+}
+.result-header.visible { display:flex; }
+.result-header h2 { font-size:16px; font-weight:700; color:#1a1a2e; }
+.result-header .btns { display:flex; align-items:center; gap:8px; }
+.btn-zoom {
+  padding:6px 12px; background:#f1f5f9; border:1px solid #cbd5e1; border-radius:8px;
+  font-size:12px; font-weight:600; cursor:pointer; transition:all .12s; min-width:42px;
+}
+.btn-zoom.active { background:#6366f1; color:#fff; border-color:#6366f1; }
+.btn-copy {
+  padding:6px 14px; background:#fff; border:1px solid #d0d0d0; border-radius:8px;
+  font-size:12px; font-weight:600; cursor:pointer; margin-left:4px;
+}
+.zoom-slider {
+  display:flex; align-items:center; gap:6px; font-size:11px; color:#64748b;
+}
+.zoom-slider input[type=range] { width:80px; }
+
+.result-body {
+  flex:1; overflow:auto; padding:16px 20px; display:flex; flex-direction:column; align-items:flex-start; gap:16px;
+}
+.empty-state {
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  color:#94a3b8; font-size:14px; padding:60px 20px; text-align:center;
+  width:100%; flex:1;
+}
+
+.bead-container { display:none; }
+.bead-container.visible { display:block; }
+.bead-grid { display:flex; flex-direction:column; gap:0; background:#fff; box-shadow:0 4px 20px rgba(0,0,0,.08); border-radius:4px; overflow:hidden; }
+.bead-row { display:flex; gap:0; }
+.bead-cell {
+  position:relative; cursor:pointer; transition:transform .1s;
+  box-sizing:border-box;
+  border:1px solid rgba(0,0,0,.25);
+  display:flex; align-items:center; justify-content:center;
+  overflow:hidden;
+}
+.bead-cell .label {
+  font-size:10px; font-weight:700; color:rgba(0,0,0,.55); line-height:1;
+  text-shadow:0 0 2px rgba(255,255,255,.7); pointer-events:none;
+  user-select:none; display:none;
+}
+.bead-cell .label.visible { display:block; }
+.bead-cell:hover { transform:scale(1.8); z-index:5; box-shadow:0 2px 8px rgba(0,0,0,.3); }
+.bead-cell .tooltip {
+  display:none; position:absolute; bottom:100%; left:50%; transform:translateX(-50%);
+  background:#1e293b; color:#fff; font-size:10px; padding:3px 8px; border-radius:4px;
+  white-space:nowrap; pointer-events:none; z-index:10;
+}
+.bead-cell:hover .tooltip { display:block; }
+
+.bead-cell.board-edge-right { border-right:3px solid rgba(0,0,0,.5); }
+.bead-cell.board-edge-bottom { border-bottom:3px solid rgba(0,0,0,.5); }
+
+.inventory { display:none; }
+.inventory.visible { display:block; width:100%; max-width:800px; }
+.inventory h3 { font-size:15px; font-weight:700; color:#1a1a2e; margin-bottom:10px; }
+.inventory-grid { display:flex; flex-wrap:wrap; gap:6px; }
+.inventory-item {
+  display:flex; align-items:center; gap:6px; background:#fff; border-radius:8px;
+  padding:5px 10px; box-shadow:0 1px 3px rgba(0,0,0,.06); font-size:12px;
+}
+.inventory-swatch { width:20px; height:20px; border-radius:4px; border:1px solid #e0e0e0; flex-shrink:0; }
+.inventory-count { font-weight:700; color:#6366f1; margin-left:2px; }
+
+.toast {
+  position:fixed; bottom:24px; left:50%; transform:translateX(-50%); z-index:999;
+  background:#1e293b; color:#fff; padding:10px 24px; border-radius:20px; font-size:13px;
+  box-shadow:0 4px 14px rgba(0,0,0,.2); opacity:0; transition:opacity .3s;
+}
+.toast.show { opacity:1; }
+
+/* ========== DIY MODE STYLES ========== */
+#diyMode { display:none; flex:1; flex-direction:column; overflow:hidden; }
+#diyMode.active { display:flex; }
+#converterContent { display:flex; flex:1; }
+#converterContent.hidden { display:none; }
+
+.diy-topbar {
+  display:flex; align-items:center; justify-content:space-between; padding:10px 20px;
+  background:#fff; border-bottom:1px solid #e0e0e0; flex-shrink:0; gap:12px;
+}
+.diy-topbar .diy-title { font-size:17px; font-weight:800; color:#1a1a2e; display:flex; align-items:center; gap:8px; }
+.diy-topbar .diy-title .icon-diy { font-size:22px; }
+
+.diy-board-config { display:flex; align-items:center; gap:10px; }
+.diy-board-config label { font-size:13px; font-weight:600; color:#475569; white-space:nowrap; }
+.diy-board-config select, .diy-board-config input {
+  padding:5px 10px; border:1px solid #d0d0d0; border-radius:6px; font-size:13px;
+}
+.diy-board-config .diy-dims { display:flex; align-items:center; gap:4px; }
+.diy-board-config .diy-dims input { width:44px; text-align:center; }
+
+.diy-tools { display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
+.diy-tool-btn {
+  padding:6px 14px; border:1px solid #d0d0d0; border-radius:8px; font-size:12px; font-weight:600;
+  cursor:pointer; background:#fff; transition:all .12s; white-space:nowrap;
+}
+.diy-tool-btn:hover { background:#f1f5f9; border-color:#94a3b8; }
+.diy-tool-btn.primary { background:#6366f1; color:#fff; border-color:#6366f1; }
+.diy-tool-btn.primary:hover { background:#4f46e5; }
+.diy-tool-btn.danger { background:#fef2f2; color:#dc2626; border-color:#fecaca; }
+.diy-tool-btn.danger:hover { background:#fee2e2; }
+
+.diy-main { display:flex; flex:1; overflow:hidden; }
+
+.diy-palette-panel {
+  width:320px; min-width:320px; background:#fff; border-right:1px solid #e0e0e0;
+  display:flex; flex-direction:column; overflow:hidden;
+}
+.diy-palette-header {
+  padding:12px 14px; border-bottom:1px solid #e0e0e0; font-size:14px; font-weight:700;
+  color:#1a1a2e; display:flex; align-items:center; gap:6px; flex-shrink:0;
+}
+.diy-selected-color {
+  padding:10px 14px; display:flex; align-items:center; gap:10px; flex-shrink:0;
+  border-bottom:1px solid #e0e0e0;
+}
+.diy-selected-color .current-swatch {
+  width:36px; height:36px; border-radius:8px; border:3px solid #6366f1; flex-shrink:0;
+  box-shadow:0 0 0 2px #fff, 0 0 0 4px #6366f1;
+}
+.diy-selected-color .current-info { font-size:13px; font-weight:600; color:#334155; }
+.diy-selected-color .current-hex { font-size:11px; color:#94a3b8; }
+
+.diy-series-tabs {
+  display:flex; flex-wrap:wrap; gap:4px; padding:8px 10px; flex-shrink:0;
+  border-bottom:1px solid #e0e0e0; overflow-x:auto;
+}
+.diy-series-tab {
+  padding:4px 10px; border-radius:14px; font-size:11px; font-weight:600; cursor:pointer;
+  border:1px solid #e0e0e0; background:#f8fafc; white-space:nowrap; transition:all .12s;
+}
+.diy-series-tab:hover { background:#eef2ff; border-color:#a5b4fc; }
+.diy-series-tab.active { background:#6366f1; color:#fff; border-color:#6366f1; }
+
+.diy-palette-colors {
+  flex:1; overflow-y:auto; padding:8px 10px; display:flex; flex-wrap:wrap;
+  align-content:flex-start; gap:4px;
+}
+.diy-color-swatch {
+  width:30px; height:30px; border-radius:4px; cursor:pointer; border:2px solid transparent;
+  transition:all .1s; position:relative; flex-shrink:0;
+}
+.diy-color-swatch:hover { transform:scale(1.2); z-index:5; box-shadow:0 2px 6px rgba(0,0,0,.2); }
+.diy-color-swatch.selected { border-color:#6366f1; box-shadow:0 0 0 2px #6366f1; transform:scale(1.1); z-index:4; }
+.diy-color-swatch .swatch-tip {
+  display:none; position:absolute; bottom:100%; left:50%; transform:translateX(-50%);
+  background:#1e293b; color:#fff; font-size:10px; padding:2px 6px; border-radius:3px;
+  white-space:nowrap; pointer-events:none; z-index:20;
+}
+.diy-color-swatch:hover .swatch-tip { display:block; }
+
+.diy-erase-swatch {
+  width:30px; height:30px; border-radius:4px; cursor:pointer; border:2px dashed #d0d0d0;
+  background:repeating-linear-gradient(45deg,#fff,#fff 3px,#f1f5f9 3px,#f1f5f9 6px);
+  display:flex; align-items:center; justify-content:center; font-size:12px; color:#94a3b8;
+  flex-shrink:0;
+}
+.diy-erase-swatch:hover { border-color:#ef4444; color:#ef4444; }
+.diy-erase-swatch.selected { border-color:#ef4444; box-shadow:0 0 0 2px #ef4444; }
+
+.diy-canvas-area {
+  flex:1; overflow:auto; padding:20px; display:flex; align-items:flex-start; justify-content:center;
+  background:#e8ecf1;
+}
+.diy-canvas-area .diy-grid {
+  display:flex; flex-direction:column; gap:0; box-shadow:0 4px 24px rgba(0,0,0,.1);
+  border-radius:4px; overflow:hidden; background:#fff;
+}
+.diy-canvas-area .diy-grid .bead-row { display:flex; gap:0; }
+.diy-canvas-area .diy-grid .bead-cell {
+  position:relative; cursor:crosshair; transition:transform .08s;
+  box-sizing:border-box;
+  border:1px solid rgba(0,0,0,.15);
+  display:flex; align-items:center; justify-content:center;
+  overflow:hidden; background:#f9fafb;
+}
+.diy-canvas-area .diy-grid .bead-cell.filled { background:var(--cell-color); border-color:rgba(0,0,0,.25); }
+.diy-canvas-area .diy-grid .bead-cell:hover { transform:scale(1.5); z-index:5; box-shadow:0 2px 8px rgba(0,0,0,.25); }
+.diy-canvas-area .diy-grid .bead-cell .diy-cell-label {
+  font-size:9px; font-weight:700; color:rgba(0,0,0,.5); line-height:1;
+  text-shadow:0 0 2px rgba(255,255,255,.6); pointer-events:none;
+  user-select:none; display:none;
+}
+.diy-canvas-area .diy-grid .bead-cell .diy-cell-tip {
+  display:none; position:absolute; bottom:100%; left:50%; transform:translateX(-50%);
+  background:#1e293b; color:#fff; font-size:10px; padding:3px 8px; border-radius:4px;
+  white-space:nowrap; pointer-events:none; z-index:10;
+}
+.diy-canvas-area .diy-grid .bead-cell:hover .diy-cell-tip { display:block; }
+
+.diy-board-label {
+  position:absolute; font-size:10px; font-weight:700; color:rgba(0,0,0,.3);
+  pointer-events:none; user-select:none;
+}
+
+/* Panel toggle for DIY */
+.diy-inventory-panel {
+  display:none; background:#fff; border-top:1px solid #e0e0e0; padding:12px 20px;
+  max-height:140px; overflow-y:auto; flex-shrink:0;
+}
+.diy-inventory-panel.visible { display:block; }
+.diy-inventory-panel h3 { font-size:13px; font-weight:700; color:#1a1a2e; margin-bottom:8px; }
+.diy-inventory-panel .inventory-grid { display:flex; flex-wrap:wrap; gap:5px; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>🧩 Mard 拼豆图案生成器 <span class="badge" id="beadBadge">221色库</span></h1>
+  <div class="controls" id="converterControls">
+    <label>单板规格</label>
+    <select id="unitSize">
+      <option value="14">14×14</option>
+      <option value="29" selected>29×29</option>
+      <option value="50">50×50</option>
+      <option value="78">78×78</option>
+    </select>
+    <label>板数</label>
+    <div class="board-dims">
+      <input type="number" id="colsInput" value="1" min="1" max="50">
+      <span class="sep">×</span>
+      <input type="number" id="rowsInput" value="1" min="1" max="50">
+    </div>
+    <span class="board-info" id="boardInfo">--</span>
+    <button class="btn-diy" id="btnDiy" title="进入DIY自由创作模式">🎨 DIY创作</button>
+  </div>
+  <button class="btn-converter" id="btnConverter" title="返回图案转换模式">📷 图案转换</button>
+</div>
+
+<div class="main-layout" id="mainLayout">
+  <!-- ========== Converter Mode ========== -->
+  <div id="converterContent" style="display:flex;flex:1;">
+    <div class="left-panel" id="leftPanel">
+      <div class="upload-zone" id="uploadZone">
+        <div class="icon">📷</div>
+        <div class="text">点击或拖拽上传图片</div>
+        <div class="sub">支持 JPG / PNG / WebP</div>
+        <input type="file" id="fileInput" accept="image/*">
+      </div>
+      <img class="preview-original" id="previewOriginal" alt="原图预览">
+      <div class="aspect-info" id="aspectInfo">
+        <div>📐 图片检测：<strong id="imgDims">--</strong></div>
+        <div>🎯 建议拼板：<strong id="suggestedLayout">--</strong></div>
+        <div style="font-size:11px;color:#64748b;margin-top:4px;">可手动调整顶部「板数」列×行</div>
+      </div>
+      <div class="settings">
+        <button class="btn-generate" id="btnGenerate" disabled>🎨 生成拼豆图案</button>
+      </div>
+    </div>
+    <div class="right-panel">
+      <div class="result-header" id="resultHeader">
+        <h2 id="resultTitle">拼豆图案</h2>
+        <div class="btns">
+          <div class="zoom-slider">
+            <span>🔍</span>
+            <input type="range" id="zoomSlider" min="0.2" max="5" step="0.1" value="1">
+            <span id="zoomLabel">1×</span>
+          </div>
+          <button class="btn-zoom active" data-zoom="1">1×</button>
+          <button class="btn-zoom" data-zoom="2">2×</button>
+          <button class="btn-zoom" data-zoom="3">3×</button>
+          <button class="btn-copy">📋 复制清单</button>
+        </div>
+      </div>
+      <div class="result-body" id="resultBody">
+        <div class="empty-state" id="emptyState">
+          <div style="font-size:48px;margin-bottom:12px;">🎯</div>
+          <div>上传图片，选择拼豆板规格与列×行板数，点击生成</div>
+        </div>
+        <div class="bead-container" id="beadContainer">
+          <div class="bead-grid" id="beadGrid"></div>
+        </div>
+        <div class="inventory" id="inventory">
+          <h3>📊 色号用量清单</h3>
+          <div class="inventory-grid" id="inventoryGrid"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== DIY Mode ========== -->
+  <div id="diyMode">
+    <div class="diy-topbar">
+      <div class="diy-title">
+        <span class="icon-diy">✨</span> DIY 自由创作
+      </div>
+      <div class="diy-board-config">
+        <label>单板规格</label>
+        <select id="diyUnitSize">
+          <option value="14">14×14</option>
+          <option value="29" selected>29×29</option>
+          <option value="50">50×50</option>
+          <option value="78">78×78</option>
+        </select>
+        <label>板数</label>
+        <div class="diy-dims">
+          <input type="number" id="diyColsInput" value="1" min="1" max="20">
+          <span class="sep">×</span>
+          <input type="number" id="diyRowsInput" value="1" min="1" max="20">
+        </div>
+        <button class="diy-tool-btn primary" id="diyBtnCreate">📐 建板</button>
+      </div>
+      <div class="diy-tools">
+        <button class="diy-tool-btn danger" id="diyBtnClear">🗑️ 清空</button>
+        <button class="diy-tool-btn" id="diyBtnUndo">↩️ 撤销</button>
+        <button class="diy-tool-btn" id="diyBtnToggleInv">📊 用量</button>
+        <button class="diy-tool-btn primary" id="diyBtnCopyList">📋 复制清单</button>
+        <button class="diy-tool-btn" id="diyBtnExport">💾 导出图片</button>
+      </div>
+    </div>
+    <div class="diy-main">
+      <div class="diy-palette-panel">
+        <div class="diy-palette-header">🎨 色号调色板</div>
+        <div class="diy-selected-color">
+          <div class="current-swatch" id="diyCurrentSwatch" style="background:#f9fafb;"></div>
+          <div>
+            <div class="current-info" id="diyCurrentName">未选择</div>
+            <div class="current-hex" id="diyCurrentHex">点击色块选取</div>
+          </div>
+        </div>
+        <div class="diy-series-tabs" id="diySeriesTabs"></div>
+        <div class="diy-palette-colors" id="diyPaletteColors">
+          <div class="diy-erase-swatch" id="diyEraseSwatch" title="橡皮擦">✕</div>
+        </div>
+      </div>
+      <div class="diy-canvas-area" id="diyCanvasArea">
+        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:#94a3b8;font-size:15px;">
+          <div style="font-size:56px;margin-bottom:16px;">✨</div>
+          <div>请先设置板规格，点击「📐 建板」开始创作</div>
+          <div style="font-size:12px;margin-top:8px;">选择色号后点击格子放置拼豆，右键擦除</div>
+        </div>
+      </div>
+    </div>
+    <div class="diy-inventory-panel" id="diyInventoryPanel">
+      <h3>📊 色号用量清单</h3>
+      <div class="inventory-grid" id="diyInventoryGrid"></div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+var COLORS = [{"色号名": "A1", "色系": "A系", "色系名称": "黄橙系", "R": 250, "G": 244, "B": 200, "HEX": "#FAF4C8"}, {"色号名": "A2", "色系": "A系", "色系名称": "黄橙系", "R": 255, "G": 255, "B": 213, "HEX": "#FFFFD5"}, {"色号名": "A3", "色系": "A系", "色系名称": "黄橙系", "R": 254, "G": 255, "B": 139, "HEX": "#FEFF8B"}, {"色号名": "A4", "色系": "A系", "色系名称": "黄橙系", "R": 251, "G": 237, "B": 86, "HEX": "#FBED56"}, {"色号名": "A5", "色系": "A系", "色系名称": "黄橙系", "R": 244, "G": 215, "B": 56, "HEX": "#F4D738"}, {"色号名": "A6", "色系": "A系", "色系名称": "黄橙系", "R": 254, "G": 172, "B": 76, "HEX": "#FEAC4C"}, {"色号名": "A7", "色系": "A系", "色系名称": "黄橙系", "R": 254, "G": 139, "B": 76, "HEX": "#FE8B4C"}, {"色号名": "A8", "色系": "A系", "色系名称": "黄橙系", "R": 255, "G": 218, "B": 69, "HEX": "#FFDA45"}, {"色号名": "A9", "色系": "A系", "色系名称": "黄橙系", "R": 255, "G": 153, "B": 91, "HEX": "#FF995B"}, {"色号名": "A10", "色系": "A系", "色系名称": "黄橙系", "R": 247, "G": 124, "B": 49, "HEX": "#F77C31"}, {"色号名": "A11", "色系": "A系", "色系名称": "黄橙系", "R": 255, "G": 221, "B": 153, "HEX": "#FFDD99"}, {"色号名": "A12", "色系": "A系", "色系名称": "黄橙系", "R": 254, "G": 159, "B": 114, "HEX": "#FE9F72"}, {"色号名": "A13", "色系": "A系", "色系名称": "黄橙系", "R": 255, "G": 195, "B": 101, "HEX": "#FFC365"}, {"色号名": "A14", "色系": "A系", "色系名称": "黄橙系", "R": 253, "G": 84, "B": 61, "HEX": "#FD543D"}, {"色号名": "A15", "色系": "A系", "色系名称": "黄橙系", "R": 255, "G": 243, "B": 101, "HEX": "#FFF365"}, {"色号名": "A16", "色系": "A系", "色系名称": "黄橙系", "R": 255, "G": 255, "B": 159, "HEX": "#FFFF9F"}, {"色号名": "A17", "色系": "A系", "色系名称": "黄橙系", "R": 255, "G": 227, "B": 110, "HEX": "#FFE36E"}, {"色号名": "A18", "色系": "A系", "色系名称": "黄橙系", "R": 254, "G": 190, "B": 125, "HEX": "#FEBE7D"}, {"色号名": "A19", "色系": "A系", "色系名称": "黄橙系", "R": 253, "G": 124, "B": 114, "HEX": "#FD7C72"}, {"色号名": "A20", "色系": "A系", "色系名称": "黄橙系", "R": 255, "G": 213, "B": 104, "HEX": "#FFD568"}, {"色号名": "A21", "色系": "A系", "色系名称": "黄橙系", "R": 255, "G": 227, "B": 149, "HEX": "#FFE395"}, {"色号名": "A22", "色系": "A系", "色系名称": "黄橙系", "R": 244, "G": 245, "B": 125, "HEX": "#F4F57D"}, {"色号名": "A23", "色系": "A系", "色系名称": "黄橙系", "R": 230, "G": 201, "B": 183, "HEX": "#E6C9B7"}, {"色号名": "A24", "色系": "A系", "色系名称": "黄橙系", "R": 247, "G": 248, "B": 162, "HEX": "#F7F8A2"}, {"色号名": "A25", "色系": "A系", "色系名称": "黄橙系", "R": 255, "G": 214, "B": 125, "HEX": "#FFD67D"}, {"色号名": "A26", "色系": "A系", "色系名称": "黄橙系", "R": 255, "G": 200, "B": 48, "HEX": "#FFC830"}, {"色号名": "B1", "色系": "B系", "色系名称": "绿色系", "R": 230, "G": 238, "B": 49, "HEX": "#E6EE31"}, {"色号名": "B2", "色系": "B系", "色系名称": "绿色系", "R": 99, "G": 243, "B": 71, "HEX": "#63F347"}, {"色号名": "B3", "色系": "B系", "色系名称": "绿色系", "R": 158, "G": 247, "B": 128, "HEX": "#9EF780"}, {"色号名": "B4", "色系": "B系", "色系名称": "绿色系", "R": 93, "G": 224, "B": 53, "HEX": "#5DE035"}, {"色号名": "B5", "色系": "B系", "色系名称": "绿色系", "R": 53, "G": 227, "B": 82, "HEX": "#35E352"}, {"色号名": "B6", "色系": "B系", "色系名称": "绿色系", "R": 101, "G": 226, "B": 166, "HEX": "#65E2A6"}, {"色号名": "B7", "色系": "B系", "色系名称": "绿色系", "R": 61, "G": 175, "B": 128, "HEX": "#3DAF80"}, {"色号名": "B8", "色系": "B系", "色系名称": "绿色系", "R": 28, "G": 156, "B": 79, "HEX": "#1C9C4F"}, {"色号名": "B9", "色系": "B系", "色系名称": "绿色系", "R": 39, "G": 82, "B": 58, "HEX": "#27523A"}, {"色号名": "B10", "色系": "B系", "色系名称": "绿色系", "R": 149, "G": 211, "B": 194, "HEX": "#95D3C2"}, {"色号名": "B11", "色系": "B系", "色系名称": "绿色系", "R": 93, "G": 114, "B": 42, "HEX": "#5D722A"}, {"色号名": "B12", "色系": "B系", "色系名称": "绿色系", "R": 22, "G": 111, "B": 65, "HEX": "#166F41"}, {"色号名": "B13", "色系": "B系", "色系名称": "绿色系", "R": 202, "G": 235, "B": 123, "HEX": "#CAEB7B"}, {"色号名": "B14", "色系": "B系", "色系名称": "绿色系", "R": 173, "G": 233, "B": 70, "HEX": "#ADE946"}, {"色号名": "B15", "色系": "B系", "色系名称": "绿色系", "R": 46, "G": 81, "B": 50, "HEX": "#2E5132"}, {"色号名": "B16", "色系": "B系", "色系名称": "绿色系", "R": 197, "G": 237, "B": 156, "HEX": "#C5ED9C"}, {"色号名": "B17", "色系": "B系", "色系名称": "绿色系", "R": 155, "G": 177, "B": 58, "HEX": "#9BB13A"}, {"色号名": "B18", "色系": "B系", "色系名称": "绿色系", "R": 230, "G": 238, "B": 73, "HEX": "#E6EE49"}, {"色号名": "B19", "色系": "B系", "色系名称": "绿色系", "R": 36, "G": 184, "B": 140, "HEX": "#24B88C"}, {"色号名": "B20", "色系": "B系", "色系名称": "绿色系", "R": 194, "G": 240, "B": 204, "HEX": "#C2F0CC"}, {"色号名": "B21", "色系": "B系", "色系名称": "绿色系", "R": 21, "G": 106, "B": 107, "HEX": "#156A6B"}, {"色号名": "B22", "色系": "B系", "色系名称": "绿色系", "R": 11, "G": 60, "B": 67, "HEX": "#0B3C43"}, {"色号名": "B23", "色系": "B系", "色系名称": "绿色系", "R": 48, "G": 58, "B": 33, "HEX": "#303A21"}, {"色号名": "B24", "色系": "B系", "色系名称": "绿色系", "R": 238, "G": 252, "B": 165, "HEX": "#EEFCA5"}, {"色号名": "B25", "色系": "B系", "色系名称": "绿色系", "R": 78, "G": 132, "B": 109, "HEX": "#4E846D"}, {"色号名": "B26", "色系": "B系", "色系名称": "绿色系", "R": 141, "G": 122, "B": 53, "HEX": "#8D7A35"}, {"色号名": "B27", "色系": "B系", "色系名称": "绿色系", "R": 204, "G": 225, "B": 175, "HEX": "#CCE1AF"}, {"色号名": "B28", "色系": "B系", "色系名称": "绿色系", "R": 158, "G": 229, "B": 185, "HEX": "#9EE5B9"}, {"色号名": "B29", "色系": "B系", "色系名称": "绿色系", "R": 197, "G": 226, "B": 84, "HEX": "#C5E254"}, {"色号名": "B30", "色系": "B系", "色系名称": "绿色系", "R": 226, "G": 252, "B": 177, "HEX": "#E2FCB1"}, {"色号名": "B31", "色系": "B系", "色系名称": "绿色系", "R": 176, "G": 231, "B": 146, "HEX": "#B0E792"}, {"色号名": "B32", "色系": "B系", "色系名称": "绿色系", "R": 156, "G": 171, "B": 90, "HEX": "#9CAB5A"}, {"色号名": "C1", "色系": "C系", "色系名称": "蓝色系", "R": 232, "G": 255, "B": 231, "HEX": "#E8FFE7"}, {"色号名": "C2", "色系": "C系", "色系名称": "蓝色系", "R": 169, "G": 249, "B": 252, "HEX": "#A9F9FC"}, {"色号名": "C3", "色系": "C系", "色系名称": "蓝色系", "R": 160, "G": 226, "B": 251, "HEX": "#A0E2FB"}, {"色号名": "C4", "色系": "C系", "色系名称": "蓝色系", "R": 65, "G": 204, "B": 255, "HEX": "#41CCFF"}, {"色号名": "C5", "色系": "C系", "色系名称": "蓝色系", "R": 1, "G": 172, "B": 235, "HEX": "#01ACEB"}, {"色号名": "C6", "色系": "C系", "色系名称": "蓝色系", "R": 80, "G": 170, "B": 240, "HEX": "#50AAF0"}, {"色号名": "C7", "色系": "C系", "色系名称": "蓝色系", "R": 54, "G": 119, "B": 210, "HEX": "#3677D2"}, {"色号名": "C8", "色系": "C系", "色系名称": "蓝色系", "R": 15, "G": 84, "B": 192, "HEX": "#0F54C0"}, {"色号名": "C9", "色系": "C系", "色系名称": "蓝色系", "R": 50, "G": 75, "B": 202, "HEX": "#324BCA"}, {"色号名": "C10", "色系": "C系", "色系名称": "蓝色系", "R": 62, "G": 188, "B": 226, "HEX": "#3EBCE2"}, {"色号名": "C11", "色系": "C系", "色系名称": "蓝色系", "R": 40, "G": 221, "B": 222, "HEX": "#28DDDE"}, {"色号名": "C12", "色系": "C系", "色系名称": "蓝色系", "R": 28, "G": 51, "B": 77, "HEX": "#1C334D"}, {"色号名": "C13", "色系": "C系", "色系名称": "蓝色系", "R": 205, "G": 232, "B": 255, "HEX": "#CDE8FF"}, {"色号名": "C14", "色系": "C系", "色系名称": "蓝色系", "R": 213, "G": 253, "B": 255, "HEX": "#D5FDFF"}, {"色号名": "C15", "色系": "C系", "色系名称": "蓝色系", "R": 34, "G": 196, "B": 198, "HEX": "#22C4C6"}, {"色号名": "C16", "色系": "C系", "色系名称": "蓝色系", "R": 21, "G": 87, "B": 168, "HEX": "#1557A8"}, {"色号名": "C17", "色系": "C系", "色系名称": "蓝色系", "R": 4, "G": 209, "B": 246, "HEX": "#04D1F6"}, {"色号名": "C18", "色系": "C系", "色系名称": "蓝色系", "R": 29, "G": 51, "B": 68, "HEX": "#1D3344"}, {"色号名": "C19", "色系": "C系", "色系名称": "蓝色系", "R": 24, "G": 135, "B": 162, "HEX": "#1887A2"}, {"色号名": "C20", "色系": "C系", "色系名称": "蓝色系", "R": 23, "G": 109, "B": 175, "HEX": "#176DAF"}, {"色号名": "C21", "色系": "C系", "色系名称": "蓝色系", "R": 190, "G": 221, "B": 255, "HEX": "#BEDDFF"}, {"色号名": "C22", "色系": "C系", "色系名称": "蓝色系", "R": 103, "G": 180, "B": 190, "HEX": "#67B4BE"}, {"色号名": "C23", "色系": "C系", "色系名称": "蓝色系", "R": 200, "G": 226, "B": 255, "HEX": "#C8E2FF"}, {"色号名": "C24", "色系": "C系", "色系名称": "蓝色系", "R": 124, "G": 196, "B": 255, "HEX": "#7CC4FF"}, {"色号名": "C25", "色系": "C系", "色系名称": "蓝色系", "R": 169, "G": 229, "B": 229, "HEX": "#A9E5E5"}, {"色号名": "C26", "色系": "C系", "色系名称": "蓝色系", "R": 60, "G": 174, "B": 216, "HEX": "#3CAED8"}, {"色号名": "C27", "色系": "C系", "色系名称": "蓝色系", "R": 211, "G": 223, "B": 250, "HEX": "#D3DFFA"}, {"色号名": "C28", "色系": "C系", "色系名称": "蓝色系", "R": 187, "G": 207, "B": 237, "HEX": "#BBCFED"}, {"色号名": "C29", "色系": "C系", "色系名称": "蓝色系", "R": 52, "G": 72, "B": 142, "HEX": "#34488E"}, {"色号名": "D1", "色系": "D系", "色系名称": "紫色系", "R": 174, "G": 180, "B": 242, "HEX": "#AEB4F2"}, {"色号名": "D2", "色系": "D系", "色系名称": "紫色系", "R": 133, "G": 142, "B": 221, "HEX": "#858EDD"}, {"色号名": "D3", "色系": "D系", "色系名称": "紫色系", "R": 47, "G": 84, "B": 175, "HEX": "#2F54AF"}, {"色号名": "D4", "色系": "D系", "色系名称": "紫色系", "R": 24, "G": 42, "B": 132, "HEX": "#182A84"}, {"色号名": "D5", "色系": "D系", "色系名称": "紫色系", "R": 184, "G": 67, "B": 197, "HEX": "#B843C5"}, {"色号名": "D6", "色系": "D系", "色系名称": "紫色系", "R": 172, "G": 123, "B": 222, "HEX": "#AC7BDE"}, {"色号名": "D7", "色系": "D系", "色系名称": "紫色系", "R": 136, "G": 84, "B": 179, "HEX": "#8854B3"}, {"色号名": "D8", "色系": "D系", "色系名称": "紫色系", "R": 226, "G": 211, "B": 255, "HEX": "#E2D3FF"}, {"色号名": "D9", "色系": "D系", "色系名称": "紫色系", "R": 213, "G": 185, "B": 248, "HEX": "#D5B9F8"}, {"色号名": "D10", "色系": "D系", "色系名称": "紫色系", "R": 54, "G": 24, "B": 81, "HEX": "#361851"}, {"色号名": "D11", "色系": "D系", "色系名称": "紫色系", "R": 185, "G": 186, "B": 225, "HEX": "#B9BAE1"}, {"色号名": "D12", "色系": "D系", "色系名称": "紫色系", "R": 222, "G": 154, "B": 212, "HEX": "#DE9AD4"}, {"色号名": "D13", "色系": "D系", "色系名称": "紫色系", "R": 185, "G": 0, "B": 149, "HEX": "#B90095"}, {"色号名": "D14", "色系": "D系", "色系名称": "紫色系", "R": 139, "G": 39, "B": 155, "HEX": "#8B279B"}, {"色号名": "D15", "色系": "D系", "色系名称": "紫色系", "R": 47, "G": 31, "B": 144, "HEX": "#2F1F90"}, {"色号名": "D16", "色系": "D系", "色系名称": "紫色系", "R": 227, "G": 225, "B": 238, "HEX": "#E3E1EE"}, {"色号名": "D17", "色系": "D系", "色系名称": "紫色系", "R": 196, "G": 212, "B": 246, "HEX": "#C4D4F6"}, {"色号名": "D18", "色系": "D系", "色系名称": "紫色系", "R": 164, "G": 94, "B": 199, "HEX": "#A45EC7"}, {"色号名": "D19", "色系": "D系", "色系名称": "紫色系", "R": 216, "G": 195, "B": 215, "HEX": "#D8C3D7"}, {"色号名": "D20", "色系": "D系", "色系名称": "紫色系", "R": 156, "G": 50, "B": 178, "HEX": "#9C32B2"}, {"色号名": "D21", "色系": "D系", "色系名称": "紫色系", "R": 154, "G": 0, "B": 155, "HEX": "#9A009B"}, {"色号名": "D22", "色系": "D系", "色系名称": "紫色系", "R": 51, "G": 58, "B": 149, "HEX": "#333A95"}, {"色号名": "D23", "色系": "D系", "色系名称": "紫色系", "R": 235, "G": 218, "B": 252, "HEX": "#EBDAFC"}, {"色号名": "D24", "色系": "D系", "色系名称": "紫色系", "R": 119, "G": 134, "B": 229, "HEX": "#7786E5"}, {"色号名": "D25", "色系": "D系", "色系名称": "紫色系", "R": 73, "G": 79, "B": 199, "HEX": "#494FC7"}, {"色号名": "D26", "色系": "D系", "色系名称": "紫色系", "R": 223, "G": 194, "B": 248, "HEX": "#DFC2F8"}, {"色号名": "E1", "色系": "E系", "色系名称": "粉色系", "R": 253, "G": 211, "B": 204, "HEX": "#FDD3CC"}, {"色号名": "E2", "色系": "E系", "色系名称": "粉色系", "R": 254, "G": 192, "B": 223, "HEX": "#FEC0DF"}, {"色号名": "E3", "色系": "E系", "色系名称": "粉色系", "R": 255, "G": 183, "B": 231, "HEX": "#FFB7E7"}, {"色号名": "E4", "色系": "E系", "色系名称": "粉色系", "R": 232, "G": 100, "B": 158, "HEX": "#E8649E"}, {"色号名": "E5", "色系": "E系", "色系名称": "粉色系", "R": 245, "G": 81, "B": 162, "HEX": "#F551A2"}, {"色号名": "E6", "色系": "E系", "色系名称": "粉色系", "R": 241, "G": 61, "B": 116, "HEX": "#F13D74"}, {"色号名": "E7", "色系": "E系", "色系名称": "粉色系", "R": 198, "G": 52, "B": 120, "HEX": "#C63478"}, {"色号名": "E8", "色系": "E系", "色系名称": "粉色系", "R": 255, "G": 219, "B": 233, "HEX": "#FFDBE9"}, {"色号名": "E9", "色系": "E系", "色系名称": "粉色系", "R": 233, "G": 112, "B": 204, "HEX": "#E970CC"}, {"色号名": "E10", "色系": "E系", "色系名称": "粉色系", "R": 211, "G": 55, "B": 147, "HEX": "#D33793"}, {"色号名": "E11", "色系": "E系", "色系名称": "粉色系", "R": 252, "G": 221, "B": 210, "HEX": "#FCDDD2"}, {"色号名": "E12", "色系": "E系", "色系名称": "粉色系", "R": 247, "G": 143, "B": 195, "HEX": "#F78FC3"}, {"色号名": "E13", "色系": "E系", "色系名称": "粉色系", "R": 181, "G": 0, "B": 109, "HEX": "#B5006D"}, {"色号名": "E14", "色系": "E系", "色系名称": "粉色系", "R": 255, "G": 209, "B": 186, "HEX": "#FFD1BA"}, {"色号名": "E15", "色系": "E系", "色系名称": "粉色系", "R": 248, "G": 199, "B": 201, "HEX": "#F8C7C9"}, {"色号名": "E16", "色系": "E系", "色系名称": "粉色系", "R": 255, "G": 243, "B": 235, "HEX": "#FFF3EB"}, {"色号名": "E17", "色系": "E系", "色系名称": "粉色系", "R": 255, "G": 226, "B": 234, "HEX": "#FFE2EA"}, {"色号名": "E18", "色系": "E系", "色系名称": "粉色系", "R": 255, "G": 199, "B": 219, "HEX": "#FFC7DB"}, {"色号名": "E19", "色系": "E系", "色系名称": "粉色系", "R": 254, "G": 186, "B": 213, "HEX": "#FEBAD5"}, {"色号名": "E20", "色系": "E系", "色系名称": "粉色系", "R": 216, "G": 199, "B": 209, "HEX": "#D8C7D1"}, {"色号名": "E21", "色系": "E系", "色系名称": "粉色系", "R": 189, "G": 157, "B": 161, "HEX": "#BD9DA1"}, {"色号名": "E22", "色系": "E系", "色系名称": "粉色系", "R": 183, "G": 133, "B": 161, "HEX": "#B785A1"}, {"色号名": "E23", "色系": "E系", "色系名称": "粉色系", "R": 147, "G": 122, "B": 141, "HEX": "#937A8D"}, {"色号名": "E24", "色系": "E系", "色系名称": "粉色系", "R": 225, "G": 188, "B": 232, "HEX": "#E1BCE8"}, {"色号名": "F1", "色系": "F系", "色系名称": "红色系", "R": 253, "G": 149, "B": 123, "HEX": "#FD957B"}, {"色号名": "F2", "色系": "F系", "色系名称": "红色系", "R": 252, "G": 61, "B": 70, "HEX": "#FC3D46"}, {"色号名": "F3", "色系": "F系", "色系名称": "红色系", "R": 247, "G": 73, "B": 65, "HEX": "#F74941"}, {"色号名": "F4", "色系": "F系", "色系名称": "红色系", "R": 252, "G": 40, "B": 60, "HEX": "#FC283C"}, {"色号名": "F5", "色系": "F系", "色系名称": "红色系", "R": 231, "G": 0, "B": 47, "HEX": "#E7002F"}, {"色号名": "F6", "色系": "F系", "色系名称": "红色系", "R": 148, "G": 54, "B": 48, "HEX": "#943630"}, {"色号名": "F7", "色系": "F系", "色系名称": "红色系", "R": 151, "G": 25, "B": 55, "HEX": "#971937"}, {"色号名": "F8", "色系": "F系", "色系名称": "红色系", "R": 188, "G": 0, "B": 40, "HEX": "#BC0028"}, {"色号名": "F9", "色系": "F系", "色系名称": "红色系", "R": 226, "G": 103, "B": 122, "HEX": "#E2677A"}, {"色号名": "F10", "色系": "F系", "色系名称": "红色系", "R": 138, "G": 69, "B": 38, "HEX": "#8A4526"}, {"色号名": "F11", "色系": "F系", "色系名称": "红色系", "R": 90, "G": 33, "B": 33, "HEX": "#5A2121"}, {"色号名": "F12", "色系": "F系", "色系名称": "红色系", "R": 253, "G": 78, "B": 106, "HEX": "#FD4E6A"}, {"色号名": "F13", "色系": "F系", "色系名称": "红色系", "R": 243, "G": 87, "B": 68, "HEX": "#F35744"}, {"色号名": "F14", "色系": "F系", "色系名称": "红色系", "R": 255, "G": 169, "B": 173, "HEX": "#FFA9AD"}, {"色号名": "F15", "色系": "F系", "色系名称": "红色系", "R": 211, "G": 0, "B": 34, "HEX": "#D30022"}, {"色号名": "F16", "色系": "F系", "色系名称": "红色系", "R": 254, "G": 194, "B": 166, "HEX": "#FEC2A6"}, {"色号名": "F17", "色系": "F系", "色系名称": "红色系", "R": 230, "G": 156, "B": 121, "HEX": "#E69C79"}, {"色号名": "F18", "色系": "F系", "色系名称": "红色系", "R": 211, "G": 124, "B": 70, "HEX": "#D37C46"}, {"色号名": "F19", "色系": "F系", "色系名称": "红色系", "R": 193, "G": 68, "B": 74, "HEX": "#C1444A"}, {"色号名": "F20", "色系": "F系", "色系名称": "红色系", "R": 205, "G": 147, "B": 145, "HEX": "#CD9391"}, {"色号名": "F21", "色系": "F系", "色系名称": "红色系", "R": 247, "G": 180, "B": 198, "HEX": "#F7B4C6"}, {"色号名": "F22", "色系": "F系", "色系名称": "红色系", "R": 253, "G": 192, "B": 208, "HEX": "#FDC0D0"}, {"色号名": "F23", "色系": "F系", "色系名称": "红色系", "R": 246, "G": 126, "B": 102, "HEX": "#F67E66"}, {"色号名": "F24", "色系": "F系", "色系名称": "红色系", "R": 230, "G": 152, "B": 170, "HEX": "#E698AA"}, {"色号名": "F25", "色系": "F系", "色系名称": "红色系", "R": 229, "G": 75, "B": 79, "HEX": "#E54B4F"}, {"色号名": "G1", "色系": "G系", "色系名称": "棕色系", "R": 255, "G": 226, "B": 206, "HEX": "#FFE2CE"}, {"色号名": "G2", "色系": "G系", "色系名称": "棕色系", "R": 255, "G": 196, "B": 170, "HEX": "#FFC4AA"}, {"色号名": "G3", "色系": "G系", "色系名称": "棕色系", "R": 244, "G": 195, "B": 165, "HEX": "#F4C3A5"}, {"色号名": "G4", "色系": "G系", "色系名称": "棕色系", "R": 225, "G": 179, "B": 131, "HEX": "#E1B383"}, {"色号名": "G5", "色系": "G系", "色系名称": "棕色系", "R": 237, "G": 176, "B": 69, "HEX": "#EDB045"}, {"色号名": "G6", "色系": "G系", "色系名称": "棕色系", "R": 233, "G": 156, "B": 23, "HEX": "#E99C17"}, {"色号名": "G7", "色系": "G系", "色系名称": "棕色系", "R": 157, "G": 91, "B": 62, "HEX": "#9D5B3E"}, {"色号名": "G8", "色系": "G系", "色系名称": "棕色系", "R": 117, "G": 56, "B": 50, "HEX": "#753832"}, {"色号名": "G9", "色系": "G系", "色系名称": "棕色系", "R": 230, "G": 180, "B": 131, "HEX": "#E6B483"}, {"色号名": "G10", "色系": "G系", "色系名称": "棕色系", "R": 217, "G": 140, "B": 57, "HEX": "#D98C39"}, {"色号名": "G11", "色系": "G系", "色系名称": "棕色系", "R": 224, "G": 197, "B": 147, "HEX": "#E0C593"}, {"色号名": "G12", "色系": "G系", "色系名称": "棕色系", "R": 255, "G": 200, "B": 144, "HEX": "#FFC890"}, {"色号名": "G13", "色系": "G系", "色系名称": "棕色系", "R": 183, "G": 113, "B": 74, "HEX": "#B7714A"}, {"色号名": "G14", "色系": "G系", "色系名称": "棕色系", "R": 141, "G": 97, "B": 76, "HEX": "#8D614C"}, {"色号名": "G15", "色系": "G系", "色系名称": "棕色系", "R": 252, "G": 249, "B": 224, "HEX": "#FCF9E0"}, {"色号名": "G16", "色系": "G系", "色系名称": "棕色系", "R": 242, "G": 217, "B": 186, "HEX": "#F2D9BA"}, {"色号名": "G17", "色系": "G系", "色系名称": "棕色系", "R": 120, "G": 82, "B": 75, "HEX": "#78524B"}, {"色号名": "G18", "色系": "G系", "色系名称": "棕色系", "R": 255, "G": 228, "B": 204, "HEX": "#FFE4CC"}, {"色号名": "G19", "色系": "G系", "色系名称": "棕色系", "R": 224, "G": 121, "B": 53, "HEX": "#E07935"}, {"色号名": "G20", "色系": "G系", "色系名称": "棕色系", "R": 169, "G": 64, "B": 35, "HEX": "#A94023"}, {"色号名": "G21", "色系": "G系", "色系名称": "棕色系", "R": 184, "G": 133, "B": 88, "HEX": "#B88558"}, {"色号名": "H1", "色系": "H系", "色系名称": "灰色系", "R": 253, "G": 251, "B": 255, "HEX": "#FDFBFF"}, {"色号名": "H2", "色系": "H系", "色系名称": "灰色系", "R": 254, "G": 255, "B": 255, "HEX": "#FEFFFF"}, {"色号名": "H3", "色系": "H系", "色系名称": "灰色系", "R": 182, "G": 177, "B": 186, "HEX": "#B6B1BA"}, {"色号名": "H4", "色系": "H系", "色系名称": "灰色系", "R": 137, "G": 133, "B": 140, "HEX": "#89858C"}, {"色号名": "H5", "色系": "H系", "色系名称": "灰色系", "R": 72, "G": 70, "B": 78, "HEX": "#48464E"}, {"色号名": "H6", "色系": "H系", "色系名称": "灰色系", "R": 47, "G": 43, "B": 47, "HEX": "#2F2B2F"}, {"色号名": "H7", "色系": "H系", "色系名称": "灰色系", "R": 0, "G": 0, "B": 0, "HEX": "#000000"}, {"色号名": "H8", "色系": "H系", "色系名称": "灰色系", "R": 231, "G": 214, "B": 219, "HEX": "#E7D6DB"}, {"色号名": "H9", "色系": "H系", "色系名称": "灰色系", "R": 237, "G": 237, "B": 237, "HEX": "#EDEDED"}, {"色号名": "H10", "色系": "H系", "色系名称": "灰色系", "R": 238, "G": 233, "B": 234, "HEX": "#EEE9EA"}, {"色号名": "H11", "色系": "H系", "色系名称": "灰色系", "R": 206, "G": 205, "B": 213, "HEX": "#CECDD5"}, {"色号名": "H12", "色系": "H系", "色系名称": "灰色系", "R": 255, "G": 245, "B": 237, "HEX": "#FFF5ED"}, {"色号名": "H13", "色系": "H系", "色系名称": "灰色系", "R": 245, "G": 236, "B": 210, "HEX": "#F5ECD2"}, {"色号名": "H14", "色系": "H系", "色系名称": "灰色系", "R": 207, "G": 215, "B": 211, "HEX": "#CFD7D3"}, {"色号名": "H15", "色系": "H系", "色系名称": "灰色系", "R": 152, "G": 166, "B": 168, "HEX": "#98A6A8"}, {"色号名": "H16", "色系": "H系", "色系名称": "灰色系", "R": 29, "G": 20, "B": 20, "HEX": "#1D1414"}, {"色号名": "H17", "色系": "H系", "色系名称": "灰色系", "R": 241, "G": 237, "B": 237, "HEX": "#F1EDED"}, {"色号名": "H18", "色系": "H系", "色系名称": "灰色系", "R": 255, "G": 253, "B": 240, "HEX": "#FFFDF0"}, {"色号名": "H19", "色系": "H系", "色系名称": "灰色系", "R": 246, "G": 239, "B": 226, "HEX": "#F6EFE2"}, {"色号名": "H20", "色系": "H系", "色系名称": "灰色系", "R": 148, "G": 159, "B": 163, "HEX": "#949FA3"}, {"色号名": "H21", "色系": "H系", "色系名称": "灰色系", "R": 255, "G": 251, "B": 225, "HEX": "#FFFBE1"}, {"色号名": "H22", "色系": "H系", "色系名称": "灰色系", "R": 202, "G": 202, "B": 212, "HEX": "#CACAD4"}, {"色号名": "H23", "色系": "H系", "色系名称": "灰色系", "R": 154, "G": 157, "B": 148, "HEX": "#9A9D94"}, {"色号名": "M1", "色系": "M系", "色系名称": "莫兰迪系", "R": 188, "G": 198, "B": 184, "HEX": "#BCC6B8"}, {"色号名": "M2", "色系": "M系", "色系名称": "莫兰迪系", "R": 138, "G": 163, "B": 134, "HEX": "#8AA386"}, {"色号名": "M3", "色系": "M系", "色系名称": "莫兰迪系", "R": 105, "G": 125, "B": 128, "HEX": "#697D80"}, {"色号名": "M4", "色系": "M系", "色系名称": "莫兰迪系", "R": 227, "G": 210, "B": 188, "HEX": "#E3D2BC"}, {"色号名": "M5", "色系": "M系", "色系名称": "莫兰迪系", "R": 208, "G": 204, "B": 170, "HEX": "#D0CCAA"}, {"色号名": "M6", "色系": "M系", "色系名称": "莫兰迪系", "R": 176, "G": 167, "B": 130, "HEX": "#B0A782"}, {"色号名": "M7", "色系": "M系", "色系名称": "莫兰迪系", "R": 180, "G": 164, "B": 151, "HEX": "#B4A497"}, {"色号名": "M8", "色系": "M系", "色系名称": "莫兰迪系", "R": 179, "G": 130, "B": 129, "HEX": "#B38281"}, {"色号名": "M9", "色系": "M系", "色系名称": "莫兰迪系", "R": 165, "G": 135, "B": 103, "HEX": "#A58767"}, {"色号名": "M10", "色系": "M系", "色系名称": "莫兰迪系", "R": 197, "G": 178, "B": 188, "HEX": "#C5B2BC"}, {"色号名": "M11", "色系": "M系", "色系名称": "莫兰迪系", "R": 159, "G": 117, "B": 148, "HEX": "#9F7594"}, {"色号名": "M12", "色系": "M系", "色系名称": "莫兰迪系", "R": 100, "G": 71, "B": 73, "HEX": "#644749"}, {"色号名": "M13", "色系": "M系", "色系名称": "莫兰迪系", "R": 209, "G": 144, "B": 102, "HEX": "#D19066"}, {"色号名": "M14", "色系": "M系", "色系名称": "莫兰迪系", "R": 199, "G": 115, "B": 98, "HEX": "#C77362"}, {"色号名": "M15", "色系": "M系", "色系名称": "莫兰迪系", "R": 117, "G": 125, "B": 120, "HEX": "#757D78"}];
+
+// ===== Shared Data =====
+var colorCache = COLORS.map(function(c){ return { name:c["色号名"], series:c["色系"], seriesName:c["色系名称"], hex:c["HEX"], r:c["R"], g:c["G"], b:c["B"] }; });
+
+// Series info
+var seriesList = [];
+(function(){
+  var seen = {};
+  for (var i = 0; i < colorCache.length; i++) {
+    var s = colorCache[i].series;
+    if (!seen[s]) { seen[s] = true; seriesList.push(s); }
+  }
+})();
+
+function showToast(msg) {
+  var t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(function(){ t.classList.remove('show'); }, 2000);
+}
+
+// ===== Converter Mode =====
+var uploadedImage = null;
+var currentZoom = 1;
+var imgAspectRatio = 1;
+
+var uploadZone = document.getElementById('uploadZone');
+var fileInput = document.getElementById('fileInput');
+var colsInput = document.getElementById('colsInput');
+var rowsInput = document.getElementById('rowsInput');
+var unitSizeSelect = document.getElementById('unitSize');
+var zoomSlider = document.getElementById('zoomSlider');
+var zoomLabel = document.getElementById('zoomLabel');
+
+uploadZone.addEventListener('click', function(){ fileInput.click(); });
+fileInput.addEventListener('change', function(e){ handleFile(e.target.files[0]); });
+uploadZone.addEventListener('dragover', function(e){ e.preventDefault(); uploadZone.classList.add('drag-over'); });
+uploadZone.addEventListener('dragleave', function(){ uploadZone.classList.remove('drag-over'); });
+uploadZone.addEventListener('drop', function(e){
+  e.preventDefault(); uploadZone.classList.remove('drag-over');
+  if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+});
+
+function handleFile(file) {
+  if (!file || !file.type.startsWith('image/')) return;
+  var reader = new FileReader();
+  reader.onload = function(ev){
+    var img = new Image();
+    img.onload = function(){
+      uploadedImage = img;
+      imgAspectRatio = img.width / img.height;
+      document.getElementById('previewOriginal').src = ev.target.result;
+      document.getElementById('previewOriginal').style.display = 'block';
+      document.getElementById('imgDims').textContent = img.width+'×'+img.height+' (宽高比 '+imgAspectRatio.toFixed(2)+':1)';
+      suggestLayout();
+      updateInfo();
+      document.getElementById('btnGenerate').disabled = false;
+      document.getElementById('btnGenerate').textContent = getGenerateLabel();
+    };
+    img.src = ev.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function getGenerateLabel() {
+  var unit = parseInt(unitSizeSelect.value);
+  var cols = parseInt(colsInput.value) || 1;
+  var rows = parseInt(rowsInput.value) || 1;
+  return '🎨 生成 '+(cols*unit)+'×'+(rows*unit)+' 拼豆图案';
+}
+
+function suggestLayout() {
+  if (!uploadedImage) return;
+  var unit = parseInt(unitSizeSelect.value);
+  var targetAspect = imgAspectRatio;
+  var bestErr = Infinity, bestCols = 1, bestRows = 1;
+  var maxSide = 30;
+  for (var c = 1; c <= maxSide; c++) {
+    for (var r = 1; r <= maxSide; r++) {
+      var err = Math.abs(c/r - targetAspect);
+      if (err < bestErr - 0.001 || (Math.abs(err - bestErr) < 0.001 && c*r < bestCols*bestRows)) {
+        bestErr = err; bestCols = c; bestRows = r;
+      }
+    }
+  }
+  colsInput.value = bestCols;
+  rowsInput.value = bestRows;
+  document.getElementById('suggestedLayout').textContent =
+    bestCols+'×'+bestRows+' 块（'+unit+'×'+unit+'单板） → '+ (bestCols*unit)+'×'+(bestRows*unit)+' 豆';
+  document.getElementById('aspectInfo').classList.add('visible');
+}
+
+function updateInfo() {
+  var unit = parseInt(unitSizeSelect.value);
+  var cols = parseInt(colsInput.value) || 1;
+  var rows = parseInt(rowsInput.value) || 1;
+  var totalBeads = cols * unit * rows * unit;
+  var totalBoards = cols * rows;
+  document.getElementById('boardInfo').textContent =
+    '总 '+cols+'×'+rows+'='+totalBoards+'块板, '+(cols*unit)+'×'+(rows*unit)+'='+totalBeads.toLocaleString()+'豆';
+  if (uploadedImage) {
+    document.getElementById('btnGenerate').textContent = getGenerateLabel();
+  }
+}
+
+unitSizeSelect.addEventListener('change', function() {
+  if (uploadedImage) suggestLayout();
+  updateInfo();
+});
+colsInput.addEventListener('input', updateInfo);
+rowsInput.addEventListener('input', updateInfo);
+
+function findClosest(r, g, b) {
+  var best = null, bestDist = Infinity;
+  for (var i = 0; i < colorCache.length; i++) {
+    var c = colorCache[i];
+    var dr = r - c.r, dg = g - c.g, db = b - c.b;
+    var dist = dr*dr + dg*dg + db*db;
+    if (dist < bestDist) { bestDist = dist; best = c; }
+  }
+  return best;
+}
+
+function generateBead() {
+  if (!uploadedImage) return;
+  var unit = parseInt(unitSizeSelect.value);
+  var cols = parseInt(colsInput.value) || 1;
+  var rows = parseInt(rowsInput.value) || 1;
+  var totalW = cols * unit;
+  var totalH = rows * unit;
+
+  var canvas = document.createElement('canvas');
+  canvas.width = totalW;
+  canvas.height = totalH;
+  var ctx = canvas.getContext('2d');
+  ctx.drawImage(uploadedImage, 0, 0, totalW, totalH);
+
+  var imageData = ctx.getImageData(0, 0, totalW, totalH);
+  var pixels = imageData.data;
+
+  var beadMap = [];
+  var invMap = {};
+  for (var y = 0; y < totalH; y++) {
+    var row = [];
+    for (var x = 0; x < totalW; x++) {
+      var idx = (y * totalW + x) * 4;
+      var r = pixels[idx], g = pixels[idx+1], b = pixels[idx+2];
+      var match = findClosest(r, g, b);
+      row.push(match);
+      var key = match.name;
+      if (!invMap[key]) invMap[key] = { color:match, count:0 };
+      invMap[key].count++;
+    }
+    beadMap.push(row);
+  }
+  renderBeadGrid(beadMap, totalW, totalH, unit);
+  renderInventory(invMap, totalW, totalH);
+  document.getElementById('beadBadge').textContent = totalW+'×'+totalH+'='+(totalW*totalH).toLocaleString()+'豆';
+}
+
+function renderBeadGrid(beadMap, totalW, totalH, unit) {
+  document.getElementById('emptyState').style.display = 'none';
+  document.getElementById('beadContainer').classList.add('visible');
+  document.getElementById('resultHeader').classList.add('visible');
+
+  var maxDim = Math.max(totalW, totalH);
+  var baseSize = Math.max(4, Math.floor(600 / maxDim));
+  var cellSize = Math.round(currentZoom * baseSize);
+  if (cellSize < 2) cellSize = 2;
+
+  var grid = document.getElementById('beadGrid');
+  grid.style.width = (cellSize * totalW) + 'px';
+
+  var showLabel = cellSize >= 14;
+
+  grid.innerHTML = '';
+  for (var y = 0; y < totalH; y++) {
+    var rowDiv = document.createElement('div');
+    rowDiv.className = 'bead-row';
+    rowDiv.style.height = cellSize + 'px';
+    for (var x = 0; x < totalW; x++) {
+      var c = beadMap[y][x];
+      var cell = document.createElement('div');
+      cell.className = 'bead-cell';
+      if ((x + 1) % unit === 0 && x < totalW - 1) cell.classList.add('board-edge-right');
+      if ((y + 1) % unit === 0 && y < totalH - 1) cell.classList.add('board-edge-bottom');
+      cell.style.width = cellSize + 'px';
+      cell.style.height = cellSize + 'px';
+      cell.style.background = c.hex;
+      cell.title = c.name + ' ' + c.hex;
+      var tip = document.createElement('span');
+      tip.className = 'tooltip';
+      tip.textContent = c.name + ' ' + c.hex;
+      cell.appendChild(tip);
+      var label = document.createElement('span');
+      label.className = 'label';
+      label.textContent = c.name;
+      if (showLabel) label.classList.add('visible');
+      cell.appendChild(label);
+      rowDiv.appendChild(cell);
+    }
+    grid.appendChild(rowDiv);
+  }
+}
+
+function renderInventory(invMap, totalW, totalH) {
+  var items = [];
+  for (var k in invMap) items.push(invMap[k]);
+  items.sort(function(a,b){ return b.count - a.count; });
+  var html = '';
+  for (var i = 0; i < items.length; i++) {
+    var it = items[i];
+    html += '<div class="inventory-item">';
+    html += '<div class="inventory-swatch" style="background:'+it.color.hex+';"></div>';
+    html += '<span>'+it.color.name+'</span>';
+    html += '<span class="inventory-count">×'+it.count+'</span>';
+    html += '<span style="color:#94a3b8;font-size:10px;">'+it.color.hex+'</span>';
+    html += '</div>';
+  }
+  document.getElementById('inventoryGrid').innerHTML = html;
+  document.getElementById('inventory').classList.add('visible');
+
+  var cols = parseInt(colsInput.value) || 1;
+  var rows = parseInt(rowsInput.value) || 1;
+  var totalBoards = cols * rows;
+  document.getElementById('resultTitle').textContent =
+    '拼豆图案 '+totalW+'×'+totalH+' ('+items.length+'色, '+(totalW*totalH).toLocaleString()+'豆, '+totalBoards+'块板)';
+}
+
+function setZoom(level) {
+  currentZoom = Math.max(0.2, Math.min(5, level));
+  zoomSlider.value = currentZoom;
+  zoomLabel.textContent = currentZoom.toFixed(1)+'×';
+  var btns = document.querySelectorAll('.btn-zoom');
+  btns.forEach(function(b){ b.classList.remove('active'); });
+  var target = document.querySelector('.btn-zoom[data-zoom="'+Math.round(currentZoom)+'"]');
+  if (target) target.classList.add('active');
+  if (uploadedImage) generateBead();
+}
+
+zoomSlider.addEventListener('input', function(){
+  setZoom(parseFloat(this.value));
+});
+
+document.getElementById('resultBody').addEventListener('wheel', function(e){
+  if (!uploadedImage) return;
+  if (!e.ctrlKey && !e.metaKey) return;
+  e.preventDefault();
+  var delta = e.deltaY > 0 ? -0.2 : 0.2;
+  setZoom(currentZoom + delta);
+}, { passive: false });
+
+document.querySelectorAll('.btn-zoom').forEach(function(btn){
+  btn.addEventListener('click', function(){
+    setZoom(parseFloat(this.getAttribute('data-zoom')));
+  });
+});
+
+document.querySelector('.btn-copy').addEventListener('click', function(){
+  var items = [];
+  document.querySelectorAll('#inventoryGrid .inventory-item').forEach(function(el){
+    items.push(el.textContent.trim());
+  });
+  var text = items.join('\n');
+  navigator.clipboard.writeText(text).then(function(){
+    showToast('✅ 清单已复制到剪贴板');
+  });
+});
+
+document.getElementById('btnGenerate').addEventListener('click', generateBead);
+
+// ===== DIY Mode =====
+var diyGridData = [];  // 2D array: null or color object
+var diyGridW = 0, diyGridH = 0, diyUnit = 29;
+var diySelectedColor = null;
+var diyUndoStack = [];
+var diyCurrentSeries = 'all';
+var diyIsMouseDown = false;
+
+var diyMode = document.getElementById('diyMode');
+var converterContent = document.getElementById('converterContent');
+var converterControls = document.getElementById('converterControls');
+var btnDiy = document.getElementById('btnDiy');
+var btnConverter = document.getElementById('btnConverter');
+
+// Mode switching
+btnDiy.addEventListener('click', function(){
+  enterDiyMode();
+});
+
+btnConverter.addEventListener('click', function(){
+  exitDiyMode();
+});
+
+function enterDiyMode() {
+  converterContent.style.display = 'none';
+  converterControls.style.display = 'none';
+  diyMode.classList.add('active');
+  btnDiy.style.display = 'none';
+  btnConverter.classList.add('visible');
+  initDiyPalette();
+}
+
+function exitDiyMode() {
+  diyMode.classList.remove('active');
+  converterContent.style.display = 'flex';
+  converterControls.style.display = 'flex';
+  btnDiy.style.display = '';
+  btnConverter.classList.remove('visible');
+}
+
+// Init DIY palette
+function initDiyPalette() {
+  // Series tabs
+  var tabsHtml = '<div class="diy-series-tab active" data-series="all">全部</div>';
+  for (var i = 0; i < seriesList.length; i++) {
+    tabsHtml += '<div class="diy-series-tab" data-series="'+seriesList[i]+'">'+seriesList[i]+'</div>';
+  }
+  document.getElementById('diySeriesTabs').innerHTML = tabsHtml;
+
+  // Add erase swatch into palette
+  var paletteDiv = document.getElementById('diyPaletteColors');
+  paletteDiv.innerHTML = '<div class="diy-erase-swatch" id="diyEraseSwatch" title="橡皮擦（右键也可擦除）">✕</div>';
+  renderDiyPaletteColors('all');
+
+  // Tab clicks
+  document.querySelectorAll('#diySeriesTabs .diy-series-tab').forEach(function(tab){
+    tab.addEventListener('click', function(){
+      document.querySelectorAll('#diySeriesTabs .diy-series-tab').forEach(function(t){ t.classList.remove('active'); });
+      this.classList.add('active');
+      diyCurrentSeries = this.getAttribute('data-series');
+      renderDiyPaletteColors(diyCurrentSeries);
+    });
+  });
+
+  // Erase swatch
+  document.getElementById('diyEraseSwatch').addEventListener('click', function(){
+    selectDiyColor(null);
+  });
+}
+
+function renderDiyPaletteColors(seriesFilter) {
+  var paletteDiv = document.getElementById('diyPaletteColors');
+  // Keep erase swatch, clear rest
+  var eraseEl = paletteDiv.querySelector('.diy-erase-swatch');
+  paletteDiv.innerHTML = '';
+  if (eraseEl) paletteDiv.appendChild(eraseEl);
+  else {
+    var ers = document.createElement('div');
+    ers.className = 'diy-erase-swatch';
+    ers.id = 'diyEraseSwatch';
+    ers.title = '橡皮擦（右键也可擦除）';
+    ers.textContent = '✕';
+    ers.addEventListener('click', function(){ selectDiyColor(null); });
+    paletteDiv.appendChild(ers);
+  }
+
+  for (var i = 0; i < colorCache.length; i++) {
+    var cc = colorCache[i];
+    if (seriesFilter !== 'all' && cc.series !== seriesFilter) continue;
+    var sw = document.createElement('div');
+    sw.className = 'diy-color-swatch';
+    sw.style.background = cc.hex;
+    sw.title = cc.name + ' ' + cc.hex;
+    sw.setAttribute('data-color-name', cc.name);
+    sw.setAttribute('data-color-hex', cc.hex);
+    if (diySelectedColor && diySelectedColor.name === cc.name) sw.classList.add('selected');
+
+    var tip = document.createElement('span');
+    tip.className = 'swatch-tip';
+    tip.textContent = cc.name;
+    sw.appendChild(tip);
+
+    sw.addEventListener('click', function(e){
+      var cName = this.getAttribute('data-color-name');
+      var cHex = this.getAttribute('data-color-hex');
+      var found = null;
+      for (var j = 0; j < colorCache.length; j++) {
+        if (colorCache[j].name === cName) { found = colorCache[j]; break; }
+      }
+      selectDiyColor(found);
+    });
+    paletteDiv.appendChild(sw);
+  }
+}
+
+function selectDiyColor(color) {
+  diySelectedColor = color;
+  document.getElementById('diyCurrentSwatch').style.background = color ? color.hex : '#f9fafb';
+  document.getElementById('diyCurrentName').textContent = color ? color.name : '橡皮擦';
+  document.getElementById('diyCurrentHex').textContent = color ? color.hex : '右键点击格子也可擦除';
+
+  // Update selection visual
+  document.querySelectorAll('#diyPaletteColors .diy-color-swatch').forEach(function(s){
+    s.classList.remove('selected');
+    if (color && s.getAttribute('data-color-name') === color.name) s.classList.add('selected');
+  });
+  var eraseSw = document.getElementById('diyEraseSwatch');
+  if (eraseSw) {
+    eraseSw.classList.remove('selected');
+    if (!color) eraseSw.classList.add('selected');
+  }
+
+  // Reset series filter highlight
+  document.querySelectorAll('#diySeriesTabs .diy-series-tab').forEach(function(t){ t.classList.remove('active'); });
+  var allTab = document.querySelector('#diySeriesTabs .diy-series-tab[data-series="all"]');
+  if (allTab) allTab.classList.add('active');
+  diyCurrentSeries = 'all';
+}
+
+// Create board
+document.getElementById('diyBtnCreate').addEventListener('click', function(){
+  var unit = parseInt(document.getElementById('diyUnitSize').value);
+  var cols = parseInt(document.getElementById('diyColsInput').value) || 1;
+  var rows = parseInt(document.getElementById('diyRowsInput').value) || 1;
+  diyUnit = unit;
+  diyGridW = cols * unit;
+  diyGridH = rows * unit;
+
+  // Init grid data
+  diyGridData = [];
+  for (var y = 0; y < diyGridH; y++) {
+    var row = [];
+    for (var x = 0; x < diyGridW; x++) row.push(null);
+    diyGridData.push(row);
+  }
+  diyUndoStack = [];
+  renderDiyGrid();
+  updateDiyInventory();
+  document.getElementById('diyInventoryPanel').classList.add('visible');
+  showToast('✅ 已创建 '+diyGridW+'×'+diyGridH+' 空白画板 ('+cols+'×'+rows+'块 '+unit+'×'+unit+'板)');
+});
+
+function renderDiyGrid() {
+  var canvasArea = document.getElementById('diyCanvasArea');
+  if (diyGridW === 0 || diyGridH === 0) {
+    canvasArea.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:#94a3b8;font-size:15px;"><div style="font-size:56px;margin-bottom:16px;">✨</div><div>请先设置板规格，点击「📐 建板」开始创作</div><div style="font-size:12px;margin-top:8px;">选择色号后点击格子放置拼豆，右键擦除</div></div>';
+    return;
+  }
+
+  var maxDim = Math.max(diyGridW, diyGridH);
+  var baseSize = Math.max(6, Math.floor(700 / maxDim));
+  var cellSize = baseSize;
+  if (cellSize < 4) cellSize = 4;
+
+  var html = '<div class="diy-grid" style="width:'+(cellSize*diyGridW)+'px;">';
+  for (var y = 0; y < diyGridH; y++) {
+    html += '<div class="bead-row" style="height:'+cellSize+'px;">';
+    for (var x = 0; x < diyGridW; x++) {
+      var cc = diyGridData[y][x];
+      var bg = cc ? cc.hex : '#f9fafb';
+      var cls = 'bead-cell';
+      if (cc) cls += ' filled';
+      if ((x + 1) % diyUnit === 0 && x < diyGridW - 1) cls += ' board-edge-right';
+      if ((y + 1) % diyUnit === 0 && y < diyGridH - 1) cls += ' board-edge-bottom';
+      html += '<div class="'+cls+'" style="width:'+cellSize+'px;height:'+cellSize+'px;'+(cc?'--cell-color:'+cc.hex+';':'')+'background:'+bg+';" data-x="'+x+'" data-y="'+y+'">';
+      if (cc) {
+        html += '<span class="diy-cell-tip">'+cc.name+' '+cc.hex+'</span>';
+        if (cellSize >= 14) {
+          html += '<span class="diy-cell-label" style="display:block;">'+cc.name+'</span>';
+        }
+      }
+      html += '</div>';
+    }
+    html += '</div>';
+  }
+  html += '</div>';
+  canvasArea.innerHTML = html;
+
+  // Attach event listeners to cells
+  var cells = canvasArea.querySelectorAll('.diy-grid .bead-cell');
+  cells.forEach(function(cell){
+    cell.addEventListener('mousedown', function(e){
+      e.preventDefault();
+      diyIsMouseDown = true;
+      if (e.button === 2) {
+        // Right click: erase
+        var x = parseInt(this.getAttribute('data-x'));
+        var y = parseInt(this.getAttribute('data-y'));
+        paintDiyCell(x, y, null);
+      } else if (e.button === 0) {
+        // Left click: paint
+        var x = parseInt(this.getAttribute('data-x'));
+        var y = parseInt(this.getAttribute('data-y'));
+        paintDiyCell(x, y, diySelectedColor);
+      }
+    });
+    cell.addEventListener('mouseenter', function(e){
+      if (!diyIsMouseDown) return;
+      var x = parseInt(this.getAttribute('data-x'));
+      var y = parseInt(this.getAttribute('data-y'));
+      if (e.buttons === 2) {
+        paintDiyCell(x, y, null);
+      } else if (e.buttons === 1) {
+        paintDiyCell(x, y, diySelectedColor);
+      }
+    });
+    cell.addEventListener('contextmenu', function(e){
+      e.preventDefault();
+      var x = parseInt(this.getAttribute('data-x'));
+      var y = parseInt(this.getAttribute('data-y'));
+      paintDiyCell(x, y, null);
+    });
+  });
+
+  // Global mouseup
+  document.addEventListener('mouseup', function(){
+    diyIsMouseDown = false;
+  });
+}
+
+function paintDiyCell(x, y, color) {
+  if (x < 0 || x >= diyGridW || y < 0 || y >= diyGridH) return;
+  var old = diyGridData[y][x];
+  // Don't repaint if same color
+  if (old === color) return;
+  if (old && color && old.name === color.name) return;
+
+  // Save to undo stack (store as snapshot of this cell)
+  diyUndoStack.push({ x: x, y: y, old: old, color: color });
+  if (diyUndoStack.length > 500) diyUndoStack.shift(); // limit undo stack
+
+  diyGridData[y][x] = color;
+
+  // Update cell visually
+  var cellEl = document.querySelector('#diyCanvasArea .diy-grid .bead-cell[data-x="'+x+'"][data-y="'+y+'"]');
+  if (cellEl) {
+    var bg = color ? color.hex : '#f9fafb';
+    cellEl.style.background = bg;
+    if (color) {
+      cellEl.classList.add('filled');
+      cellEl.style.setProperty('--cell-color', color.hex);
+      // Update tooltip
+      var existingTip = cellEl.querySelector('.diy-cell-tip');
+      if (existingTip) existingTip.textContent = color.name + ' ' + color.hex;
+      else {
+        var tip = document.createElement('span');
+        tip.className = 'diy-cell-tip';
+        tip.textContent = color.name + ' ' + color.hex;
+        cellEl.appendChild(tip);
+      }
+      // Update label
+      var existingLabel = cellEl.querySelector('.diy-cell-label');
+      if (!existingLabel) {
+        var label = document.createElement('span');
+        label.className = 'diy-cell-label';
+        cellEl.appendChild(label);
+        existingLabel = label;
+      }
+      var cellSize = parseInt(cellEl.style.width);
+      if (cellSize >= 14) {
+        existingLabel.style.display = 'block';
+        existingLabel.textContent = color.name;
+      } else {
+        existingLabel.style.display = 'none';
+      }
+    } else {
+      cellEl.classList.remove('filled');
+      cellEl.style.removeProperty('--cell-color');
+      var tip = cellEl.querySelector('.diy-cell-tip');
+      if (tip) tip.remove();
+      var label = cellEl.querySelector('.diy-cell-label');
+      if (label) label.remove();
+    }
+  }
+
+  updateDiyInventory();
+}
+
+function updateDiyInventory() {
+  if (diyGridW === 0) return;
+  var invMap = {};
+  for (var y = 0; y < diyGridH; y++) {
+    for (var x = 0; x < diyGridW; x++) {
+      var cc = diyGridData[y][x];
+      if (!cc) continue;
+      var key = cc.name;
+      if (!invMap[key]) invMap[key] = { color: cc, count: 0 };
+      invMap[key].count++;
+    }
+  }
+  var items = [];
+  for (var k in invMap) items.push(invMap[k]);
+  items.sort(function(a,b){ return b.count - a.count; });
+
+  var totalUsed = 0;
+  var html = '';
+  for (var i = 0; i < items.length; i++) {
+    var it = items[i];
+    totalUsed += it.count;
+    html += '<div class="inventory-item">';
+    html += '<div class="inventory-swatch" style="background:'+it.color.hex+';"></div>';
+    html += '<span>'+it.color.name+'</span>';
+    html += '<span class="inventory-count">×'+it.count+'</span>';
+    html += '<span style="color:#94a3b8;font-size:10px;">'+it.color.hex+'</span>';
+    html += '</div>';
+  }
+  document.getElementById('diyInventoryGrid').innerHTML = html || '<span style="font-size:12px;color:#94a3b8;">暂无拼豆放置</span>';
+
+  var cols = parseInt(document.getElementById('diyColsInput').value) || 1;
+  var rows = parseInt(document.getElementById('diyRowsInput').value) || 1;
+  var totalBoards = cols * rows;
+  document.getElementById('beadBadge').textContent = 'DIY: '+diyGridW+'×'+diyGridH+' ('+items.length+'色, '+totalUsed+'豆, '+totalBoards+'块板)';
+}
+
+// Clear all
+document.getElementById('diyBtnClear').addEventListener('click', function(){
+  if (diyGridW === 0) return;
+  if (!confirm('确定要清空整个画板吗？此操作不可恢复。')) return;
+  diyUndoStack = [];
+  for (var y = 0; y < diyGridH; y++) {
+    for (var x = 0; x < diyGridW; x++) {
+      diyGridData[y][x] = null;
+    }
+  }
+  renderDiyGrid();
+  updateDiyInventory();
+  showToast('🗑️ 画板已清空');
+});
+
+// Undo
+document.getElementById('diyBtnUndo').addEventListener('click', function(){
+  if (diyUndoStack.length === 0) { showToast('没有可撤销的操作'); return; }
+  var action = diyUndoStack.pop();
+  diyGridData[action.y][action.x] = action.old;
+  // Update cell
+  var cellEl = document.querySelector('#diyCanvasArea .diy-grid .bead-cell[data-x="'+action.x+'"][data-y="'+action.y+'"]');
+  if (cellEl) {
+    var bg = action.old ? action.old.hex : '#f9fafb';
+    cellEl.style.background = bg;
+    if (action.old) {
+      cellEl.classList.add('filled');
+      cellEl.style.setProperty('--cell-color', action.old.hex);
+      var tip = cellEl.querySelector('.diy-cell-tip');
+      if (tip) tip.textContent = action.old.name + ' ' + action.old.hex;
+      else {
+        tip = document.createElement('span');
+        tip.className = 'diy-cell-tip';
+        tip.textContent = action.old.name + ' ' + action.old.hex;
+        cellEl.appendChild(tip);
+      }
+    } else {
+      cellEl.classList.remove('filled');
+      cellEl.style.removeProperty('--cell-color');
+      var tip = cellEl.querySelector('.diy-cell-tip');
+      if (tip) tip.remove();
+      var label = cellEl.querySelector('.diy-cell-label');
+      if (label) label.remove();
+    }
+  }
+  updateDiyInventory();
+  showToast('↩️ 已撤销一步');
+});
+
+// Toggle inventory
+document.getElementById('diyBtnToggleInv').addEventListener('click', function(){
+  var panel = document.getElementById('diyInventoryPanel');
+  panel.classList.toggle('visible');
+});
+
+// Copy list
+document.getElementById('diyBtnCopyList').addEventListener('click', function(){
+  if (diyGridW === 0) { showToast('请先创建画板'); return; }
+  var invMap = {};
+  for (var y = 0; y < diyGridH; y++) {
+    for (var x = 0; x < diyGridW; x++) {
+      var cc = diyGridData[y][x];
+      if (!cc) continue;
+      var key = cc.name;
+      if (!invMap[key]) invMap[key] = { color: cc, count: 0 };
+      invMap[key].count++;
+    }
+  }
+  var items = [];
+  for (var k in invMap) items.push(invMap[k]);
+  items.sort(function(a,b){ return b.count - a.count; });
+  var text = '';
+  for (var i = 0; i < items.length; i++) {
+    text += items[i].color.name + ' ×' + items[i].count + ' ' + items[i].color.hex + '\n';
+  }
+  navigator.clipboard.writeText(text).then(function(){
+    showToast('✅ DIY清单已复制到剪贴板');
+  });
+});
+
+// Export as image
+document.getElementById('diyBtnExport').addEventListener('click', function(){
+  if (diyGridW === 0) { showToast('请先创建画板'); return; }
+  var cellSize = 12;
+  var canvas = document.createElement('canvas');
+  canvas.width = diyGridW * cellSize;
+  canvas.height = diyGridH * cellSize;
+  var ctx = canvas.getContext('2d');
+  for (var y = 0; y < diyGridH; y++) {
+    for (var x = 0; x < diyGridW; x++) {
+      var cc = diyGridData[y][x];
+      ctx.fillStyle = cc ? cc.hex : '#ffffff';
+      ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
+      // Board edge lines
+      if ((x + 1) % diyUnit === 0 && x < diyGridW - 1) {
+        ctx.fillStyle = 'rgba(0,0,0,0.3)';
+        ctx.fillRect((x+1) * cellSize - 1, y * cellSize, 2, cellSize);
+      }
+      if ((y + 1) % diyUnit === 0 && y < diyGridH - 1) {
+        ctx.fillStyle = 'rgba(0,0,0,0.3)';
+        ctx.fillRect(x * cellSize, (y+1) * cellSize - 1, cellSize, 2);
+      }
+    }
+  }
+  var link = document.createElement('a');
+  link.download = 'diy_bead_design.png';
+  link.href = canvas.toDataURL('image/png');
+  link.click();
+  showToast('💾 图片已导出');
+});
+
+// Init converter
+updateInfo();
+</script>
+</body>
+</html>
