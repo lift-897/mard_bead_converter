@@ -81,6 +81,31 @@
 
 ---
 
+## 📸 截图展示
+
+> 💡 **如何自己添加图片：**
+> 1. 在仓库根目录创建 `screenshots` 文件夹
+> 2. 把你的截图文件（PNG/JPG/GIF）放到 `screenshots/` 里
+> 3. 用下面的 Markdown 语法引用：
+>    ```
+>    ![图片描述](screenshots/文件名.png)
+>    ```
+> 4. 如果图片太大可控制宽度：
+>    ```
+>    <img src="screenshots/文件名.png" width="600">
+>    ```
+> 5. 推荐截图后先用 [TinyPNG](https://tinypng.com) 压缩再上传，加快加载速度
+
+### 图案转换模式
+<!-- 替换下面的 src 为你的截图路径 -->
+<!-- ![图案转换截图](screenshots/converter.png) -->
+
+### DIY 自由创作模式
+<!-- 替换下面的 src 为你的截图路径 -->
+<!-- ![DIY创作截图](screenshots/diy.png) -->
+
+---
+
 ## 🎨 色库说明
 
 内置 Mard 拼豆 221 种官方色号，按色系分类：
