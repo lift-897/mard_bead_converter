@@ -266,12 +266,6 @@ body { font-family:'Microsoft YaHei','PingFang SC',sans-serif; background:#f0f2f
 }
 .diy-canvas-area .diy-grid .bead-cell:hover .diy-cell-tip { display:block; }
 
-.diy-board-label {
-  position:absolute; font-size:10px; font-weight:700; color:rgba(0,0,0,.3);
-  pointer-events:none; user-select:none;
-}
-
-/* Panel toggle for DIY */
 .diy-inventory-panel {
   display:none; background:#fff; border-top:1px solid #e0e0e0; padding:12px 20px;
   max-height:140px; overflow-y:auto; flex-shrink:0;
@@ -384,6 +378,7 @@ body { font-family:'Microsoft YaHei','PingFang SC',sans-serif; background:#f0f2f
         <button class="diy-tool-btn" id="diyBtnToggleInv">📊 用量</button>
         <button class="diy-tool-btn primary" id="diyBtnCopyList">📋 复制清单</button>
         <button class="diy-tool-btn" id="diyBtnExport">💾 导出图片</button>
+        <button class="diy-tool-btn primary" id="diyBtnReport">📄 生成报表</button>
       </div>
     </div>
     <div class="diy-main">
@@ -720,9 +715,15 @@ function enterDiyMode() {
   btnDiy.style.display = 'none';
   btnConverter.classList.add('visible');
   initDiyPalette();
+  // Try to auto-load saved state
+  if (!loadDiyState()) {
+    // No saved state, show empty canvas prompt
+    document.getElementById('diyCanvasArea').innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:#94a3b8;font-size:15px;"><div style="font-size:56px;margin-bottom:16px;">✨</div><div>请先设置板规格，点击「📐 建板」开始创作</div><div style="font-size:12px;margin-top:8px;">选择色号后点击格子放置拼豆，右键擦除</div></div>';
+  }
 }
 
 function exitDiyMode() {
+  saveDiyState();
   diyMode.classList.remove('active');
   converterContent.style.display = 'flex';
   converterControls.style.display = 'flex';
@@ -762,7 +763,6 @@ function initDiyPalette() {
 
 function renderDiyPaletteColors(seriesFilter) {
   var paletteDiv = document.getElementById('diyPaletteColors');
-  // Keep erase swatch, clear rest
   var eraseEl = paletteDiv.querySelector('.diy-erase-swatch');
   paletteDiv.innerHTML = '';
   if (eraseEl) paletteDiv.appendChild(eraseEl);
@@ -811,7 +811,6 @@ function selectDiyColor(color) {
   document.getElementById('diyCurrentName').textContent = color ? color.name : '橡皮擦';
   document.getElementById('diyCurrentHex').textContent = color ? color.hex : '右键点击格子也可擦除';
 
-  // Update selection visual
   document.querySelectorAll('#diyPaletteColors .diy-color-swatch').forEach(function(s){
     s.classList.remove('selected');
     if (color && s.getAttribute('data-color-name') === color.name) s.classList.add('selected');
@@ -822,7 +821,6 @@ function selectDiyColor(color) {
     if (!color) eraseSw.classList.add('selected');
   }
 
-  // Reset series filter highlight
   document.querySelectorAll('#diySeriesTabs .diy-series-tab').forEach(function(t){ t.classList.remove('active'); });
   var allTab = document.querySelector('#diySeriesTabs .diy-series-tab[data-series="all"]');
   if (allTab) allTab.classList.add('active');
@@ -838,7 +836,6 @@ document.getElementById('diyBtnCreate').addEventListener('click', function(){
   diyGridW = cols * unit;
   diyGridH = rows * unit;
 
-  // Init grid data
   diyGridData = [];
   for (var y = 0; y < diyGridH; y++) {
     var row = [];
@@ -849,6 +846,7 @@ document.getElementById('diyBtnCreate').addEventListener('click', function(){
   renderDiyGrid();
   updateDiyInventory();
   document.getElementById('diyInventoryPanel').classList.add('visible');
+  saveDiyState();
   showToast('✅ 已创建 '+diyGridW+'×'+diyGridH+' 空白画板 ('+cols+'×'+rows+'块 '+unit+'×'+unit+'板)');
 });
 
@@ -888,19 +886,16 @@ function renderDiyGrid() {
   html += '</div>';
   canvasArea.innerHTML = html;
 
-  // Attach event listeners to cells
   var cells = canvasArea.querySelectorAll('.diy-grid .bead-cell');
   cells.forEach(function(cell){
     cell.addEventListener('mousedown', function(e){
       e.preventDefault();
       diyIsMouseDown = true;
       if (e.button === 2) {
-        // Right click: erase
         var x = parseInt(this.getAttribute('data-x'));
         var y = parseInt(this.getAttribute('data-y'));
         paintDiyCell(x, y, null);
       } else if (e.button === 0) {
-        // Left click: paint
         var x = parseInt(this.getAttribute('data-x'));
         var y = parseInt(this.getAttribute('data-y'));
         paintDiyCell(x, y, diySelectedColor);
@@ -924,7 +919,6 @@ function renderDiyGrid() {
     });
   });
 
-  // Global mouseup
   document.addEventListener('mouseup', function(){
     diyIsMouseDown = false;
   });
@@ -933,17 +927,14 @@ function renderDiyGrid() {
 function paintDiyCell(x, y, color) {
   if (x < 0 || x >= diyGridW || y < 0 || y >= diyGridH) return;
   var old = diyGridData[y][x];
-  // Don't repaint if same color
   if (old === color) return;
   if (old && color && old.name === color.name) return;
 
-  // Save to undo stack (store as snapshot of this cell)
   diyUndoStack.push({ x: x, y: y, old: old, color: color });
-  if (diyUndoStack.length > 500) diyUndoStack.shift(); // limit undo stack
+  if (diyUndoStack.length > 500) diyUndoStack.shift();
 
   diyGridData[y][x] = color;
 
-  // Update cell visually
   var cellEl = document.querySelector('#diyCanvasArea .diy-grid .bead-cell[data-x="'+x+'"][data-y="'+y+'"]');
   if (cellEl) {
     var bg = color ? color.hex : '#f9fafb';
@@ -951,7 +942,6 @@ function paintDiyCell(x, y, color) {
     if (color) {
       cellEl.classList.add('filled');
       cellEl.style.setProperty('--cell-color', color.hex);
-      // Update tooltip
       var existingTip = cellEl.querySelector('.diy-cell-tip');
       if (existingTip) existingTip.textContent = color.name + ' ' + color.hex;
       else {
@@ -960,7 +950,6 @@ function paintDiyCell(x, y, color) {
         tip.textContent = color.name + ' ' + color.hex;
         cellEl.appendChild(tip);
       }
-      // Update label
       var existingLabel = cellEl.querySelector('.diy-cell-label');
       if (!existingLabel) {
         var label = document.createElement('span');
@@ -986,6 +975,7 @@ function paintDiyCell(x, y, color) {
   }
 
   updateDiyInventory();
+  saveDiyState();
 }
 
 function updateDiyInventory() {
@@ -1036,6 +1026,7 @@ document.getElementById('diyBtnClear').addEventListener('click', function(){
   }
   renderDiyGrid();
   updateDiyInventory();
+  saveDiyState();
   showToast('🗑️ 画板已清空');
 });
 
@@ -1044,7 +1035,6 @@ document.getElementById('diyBtnUndo').addEventListener('click', function(){
   if (diyUndoStack.length === 0) { showToast('没有可撤销的操作'); return; }
   var action = diyUndoStack.pop();
   diyGridData[action.y][action.x] = action.old;
-  // Update cell
   var cellEl = document.querySelector('#diyCanvasArea .diy-grid .bead-cell[data-x="'+action.x+'"][data-y="'+action.y+'"]');
   if (cellEl) {
     var bg = action.old ? action.old.hex : '#f9fafb';
@@ -1070,6 +1060,7 @@ document.getElementById('diyBtnUndo').addEventListener('click', function(){
     }
   }
   updateDiyInventory();
+  saveDiyState();
   showToast('↩️ 已撤销一步');
 });
 
@@ -1117,7 +1108,6 @@ document.getElementById('diyBtnExport').addEventListener('click', function(){
       var cc = diyGridData[y][x];
       ctx.fillStyle = cc ? cc.hex : '#ffffff';
       ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
-      // Board edge lines
       if ((x + 1) % diyUnit === 0 && x < diyGridW - 1) {
         ctx.fillStyle = 'rgba(0,0,0,0.3)';
         ctx.fillRect((x+1) * cellSize - 1, y * cellSize, 2, cellSize);
@@ -1134,6 +1124,250 @@ document.getElementById('diyBtnExport').addEventListener('click', function(){
   link.click();
   showToast('💾 图片已导出');
 });
+
+// ===== DIY Auto-Save (localStorage) =====
+function saveDiyState() {
+  if (diyGridW === 0 || diyGridH === 0) return;
+  try {
+    var state = {
+      w: diyGridW, h: diyGridH, unit: diyUnit,
+      cols: parseInt(document.getElementById('diyColsInput').value) || 1,
+      rows: parseInt(document.getElementById('diyRowsInput').value) || 1,
+      cells: []
+    };
+    for (var y = 0; y < diyGridH; y++) {
+      for (var x = 0; x < diyGridW; x++) {
+        var cc = diyGridData[y][x];
+        state.cells.push(cc ? cc.name : null);
+      }
+    }
+    localStorage.setItem('mard_diy_save', JSON.stringify(state));
+  } catch(e) {
+    // localStorage full or unavailable
+  }
+}
+
+function loadDiyState() {
+  try {
+    var raw = localStorage.getItem('mard_diy_save');
+    if (!raw) return false;
+    var state = JSON.parse(raw);
+    if (!state || !state.w || !state.h) return false;
+    diyUnit = state.unit || 29;
+    diyGridW = state.w;
+    diyGridH = state.h;
+    document.getElementById('diyUnitSize').value = diyUnit;
+    document.getElementById('diyColsInput').value = state.cols || 1;
+    document.getElementById('diyRowsInput').value = state.rows || 1;
+    diyGridData = [];
+    var idx = 0;
+    for (var y = 0; y < diyGridH; y++) {
+      var row = [];
+      for (var x = 0; x < diyGridW; x++) {
+        var name = state.cells[idx++];
+        if (name) {
+          var found = null;
+          for (var j = 0; j < colorCache.length; j++) {
+            if (colorCache[j].name === name) { found = colorCache[j]; break; }
+          }
+          row.push(found);
+        } else {
+          row.push(null);
+        }
+      }
+      diyGridData.push(row);
+    }
+    diyUndoStack = [];
+    renderDiyGrid();
+    updateDiyInventory();
+    document.getElementById('diyInventoryPanel').classList.add('visible');
+    showToast('📂 已恢复上次的DIY设计');
+    return true;
+  } catch(e) {
+    return false;
+  }
+}
+
+// ===== Generate Report =====
+function generateReport() {
+  if (diyGridW === 0) { showToast('请先创建画板'); return; }
+
+  var invMap = {};
+  var totalUsed = 0;
+  for (var y = 0; y < diyGridH; y++) {
+    for (var x = 0; x < diyGridW; x++) {
+      var cc = diyGridData[y][x];
+      if (!cc) continue;
+      totalUsed++;
+      var key = cc.name;
+      if (!invMap[key]) invMap[key] = { color: cc, count: 0 };
+      invMap[key].count++;
+    }
+  }
+  var items = [];
+  for (var k in invMap) items.push(invMap[k]);
+  items.sort(function(a,b){ return b.count - a.count; });
+
+  var cols = parseInt(document.getElementById('diyColsInput').value) || 1;
+  var rows = parseInt(document.getElementById('diyRowsInput').value) || 1;
+  var totalBoards = cols * rows;
+
+  var cellSize = 12;
+  var canvas = document.createElement('canvas');
+  canvas.width = diyGridW * cellSize;
+  canvas.height = diyGridH * cellSize;
+  var ctx = canvas.getContext('2d');
+  for (var y = 0; y < diyGridH; y++) {
+    for (var x = 0; x < diyGridW; x++) {
+      var cc = diyGridData[y][x];
+      ctx.fillStyle = cc ? cc.hex : '#ffffff';
+      ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
+      if ((x + 1) % diyUnit === 0 && x < diyGridW - 1) {
+        ctx.fillStyle = 'rgba(0,0,0,0.35)';
+        ctx.fillRect((x+1) * cellSize - 1, y * cellSize, 2, cellSize);
+      }
+      if ((y + 1) % diyUnit === 0 && y < diyGridH - 1) {
+        ctx.fillStyle = 'rgba(0,0,0,0.35)';
+        ctx.fillRect(x * cellSize, (y+1) * cellSize - 1, cellSize, 2);
+      }
+    }
+  }
+  var imgDataUrl = canvas.toDataURL('image/png');
+
+  var boardLayoutText = '';
+  for (var br = 0; br < rows; br++) {
+    for (var bc = 0; bc < cols; bc++) {
+      boardLayoutText += '┌──┐';
+      if (bc < cols - 1) boardLayoutText += ' ';
+    }
+    boardLayoutText += '\n';
+    for (var by = 0; by < diyUnit; by++) {
+      for (var bc = 0; bc < cols; bc++) {
+        boardLayoutText += '│**│';
+        if (bc < cols - 1) boardLayoutText += ' ';
+      }
+      boardLayoutText += '\n';
+    }
+    for (var bc = 0; bc < cols; bc++) {
+      boardLayoutText += '└──┘';
+      if (bc < cols - 1) boardLayoutText += ' ';
+    }
+    boardLayoutText += '\n';
+  }
+
+  var invRowsHtml = '';
+  for (var i = 0; i < items.length; i++) {
+    var it = items[i];
+    var pct = (it.count / totalUsed * 100).toFixed(1);
+    invRowsHtml += '<tr>';
+    invRowsHtml += '<td style="text-align:center;"><span style="display:inline-block;width:24px;height:24px;border-radius:4px;background:'+it.color.hex+';border:1px solid #ccc;vertical-align:middle;"></span></td>';
+    invRowsHtml += '<td style="text-align:center;font-weight:700;">'+it.color.name+'</td>';
+    invRowsHtml += '<td style="text-align:center;font-family:monospace;color:#6366f1;">'+it.color.hex+'</td>';
+    invRowsHtml += '<td style="text-align:right;font-weight:700;">'+it.count+'</td>';
+    invRowsHtml += '<td style="text-align:right;color:#64748b;">'+pct+'%</td>';
+    invRowsHtml += '</tr>';
+  }
+
+  var now = new Date();
+  var dateStr = now.getFullYear() + '-' +
+    String(now.getMonth()+1).padStart(2,'0') + '-' +
+    String(now.getDate()).padStart(2,'0') + ' ' +
+    String(now.getHours()).padStart(2,'0') + ':' +
+    String(now.getMinutes()).padStart(2,'0');
+
+  var reportHtml = '<!DOCTYPE html>\n<html lang="zh-CN">\n<head>\n<meta charset="UTF-8">\n';
+  reportHtml += '<title>Mard DIY 设计报告</title>\n';
+  reportHtml += '<style>\n';
+  reportHtml += '*{margin:0;padding:0;box-sizing:border-box;}\n';
+  reportHtml += 'body{font-family:"Microsoft YaHei","PingFang SC",sans-serif;background:#f8fafc;color:#1e293b;padding:20px;line-height:1.6;}\n';
+  reportHtml += '.report{max-width:1000px;margin:0 auto;background:#fff;border-radius:12px;box-shadow:0 4px 24px rgba(0,0,0,.08);overflow:hidden;}\n';
+  reportHtml += '.report-header{background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;padding:32px 40px;}\n';
+  reportHtml += '.report-header h1{font-size:24px;font-weight:800;margin-bottom:8px;}\n';
+  reportHtml += '.report-header .meta{font-size:13px;opacity:.85;}\n';
+  reportHtml += '.report-body{padding:32px 40px;}\n';
+  reportHtml += '.section{margin-bottom:32px;}\n';
+  reportHtml += '.section h2{font-size:18px;font-weight:700;color:#1a1a2e;border-bottom:2px solid #6366f1;padding-bottom:8px;margin-bottom:16px;}\n';
+  reportHtml += '.info-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;}\n';
+  reportHtml += '.info-card{background:#f1f5f9;border-radius:8px;padding:14px 18px;}\n';
+  reportHtml += '.info-card .label{font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.5px;}\n';
+  reportHtml += '.info-card .value{font-size:20px;font-weight:800;color:#1a1a2e;}\n';
+  reportHtml += '.design-img{text-align:center;margin:16px 0;}\n';
+  reportHtml += '.design-img img{max-width:100%;border-radius:8px;box-shadow:0 2px 12px rgba(0,0,0,.1);image-rendering:pixelated;}\n';
+  reportHtml += 'table{width:100%;border-collapse:collapse;font-size:13px;}\n';
+  reportHtml += 'th{background:#f1f5f9;padding:10px 14px;text-align:left;font-weight:700;color:#475569;border-bottom:2px solid #e2e8f0;text-align:center;}\n';
+  reportHtml += 'td{padding:8px 14px;border-bottom:1px solid #f1f5f9;}\n';
+  reportHtml += 'tr:nth-child(even){background:#fafbfc;}\n';
+  reportHtml += '.total-row{font-weight:800;background:#eef2ff!important;}\n';
+  reportHtml += '.footer{text-align:center;padding:20px;color:#94a3b8;font-size:11px;border-top:1px solid #e2e8f0;margin-top:16px;}\n';
+  reportHtml += '@media print{body{background:#fff;padding:0;} .report{box-shadow:none;border-radius:0;} .report-header{border-radius:0;}}\n';
+  reportHtml += '</style>\n</head>\n<body>\n';
+  reportHtml += '<div class="report">\n';
+  reportHtml += '<div class="report-header">\n';
+  reportHtml += '<h1>🧩 Mard DIY 拼豆设计报告</h1>\n';
+  reportHtml += '<div class="meta">生成时间：'+dateStr+' ｜ 工具：Mard 拼豆图案生成器</div>\n';
+  reportHtml += '</div>\n';
+  reportHtml += '<div class="report-body">\n';
+
+  reportHtml += '<div class="section">\n<h2>📐 设计概览</h2>\n';
+  reportHtml += '<div class="info-grid">\n';
+  reportHtml += '<div class="info-card"><div class="label">总尺寸</div><div class="value">'+diyGridW+'×'+diyGridH+'</div></div>\n';
+  reportHtml += '<div class="info-card"><div class="label">单板规格</div><div class="value">'+diyUnit+'×'+diyUnit+'</div></div>\n';
+  reportHtml += '<div class="info-card"><div class="label">板数布局</div><div class="value">'+cols+'×'+rows+'='+totalBoards+'块</div></div>\n';
+  reportHtml += '<div class="info-card"><div class="label">使用色号</div><div class="value">'+items.length+'色</div></div>\n';
+  reportHtml += '<div class="info-card"><div class="label">已用豆数</div><div class="value">'+totalUsed.toLocaleString()+'豆</div></div>\n';
+  reportHtml += '<div class="info-card"><div class="label">总容量</div><div class="value">'+(diyGridW*diyGridH).toLocaleString()+'豆</div></div>\n';
+  reportHtml += '</div></div>\n';
+
+  reportHtml += '<div class="section">\n<h2>🎨 设计图</h2>\n';
+  reportHtml += '<div class="design-img"><img src="'+imgDataUrl+'" alt="DIY设计图" style="image-rendering:pixelated;"></div>\n';
+  reportHtml += '</div>\n';
+
+  reportHtml += '<div class="section">\n<h2>📋 板布局</h2>\n';
+  reportHtml += '<p style="font-size:13px;color:#64748b;margin-bottom:12px;">共 <strong>'+totalBoards+'</strong> 块板，'+cols+'列 × '+rows+'行，每块 '+diyUnit+'×'+diyUnit+' 豆</p>\n';
+  boardLayoutText.split('\n').forEach(function(line){
+    if (line.trim()) reportHtml += '<p style="font-family:monospace;font-size:11px;color:#94a3b8;margin:0;">'+line.replace(/</g,'<').replace(/>/g,'>')+'</p>\n';
+  });
+  reportHtml += '</div>\n';
+
+  reportHtml += '<div class="section">\n<h2>📊 用料清单</h2>\n';
+  reportHtml += '<table>\n<thead><tr><th>色样</th><th>色号</th><th>色值</th><th>数量</th><th>占比</th></tr></thead>\n<tbody>\n';
+  reportHtml += invRowsHtml;
+  reportHtml += '<tr class="total-row"><td colspan="3" style="text-align:right;font-weight:800;">合计</td><td style="text-align:right;font-weight:800;">'+totalUsed.toLocaleString()+'</td><td style="text-align:right;font-weight:800;">100%</td></tr>\n';
+  reportHtml += '</tbody></table>\n';
+  reportHtml += '</div>\n';
+
+  reportHtml += '</div>\n';
+  reportHtml += '<div style="padding:0 40px 32px;">\n<div class="section">\n<h2>🛒 采购清单</h2>\n';
+  reportHtml += '<div style="display:flex;flex-wrap:wrap;gap:8px;">\n';
+  for (var i = 0; i < items.length; i++) {
+    var it = items[i];
+    reportHtml += '<div style="display:flex;align-items:center;gap:6px;background:#f8fafc;border-radius:8px;padding:6px 12px;font-size:13px;font-weight:600;">';
+    reportHtml += '<span style="display:inline-block;width:20px;height:20px;border-radius:4px;background:'+it.color.hex+';border:1px solid #d0d0d0;"></span>';
+    reportHtml += '<span>'+it.color.name+'</span>';
+    reportHtml += '<span style="color:#6366f1;">×'+it.count+'</span>';
+    reportHtml += '</div>\n';
+  }
+  reportHtml += '</div></div></div>\n';
+  reportHtml += '<div class="footer">📄 由 Mard 拼豆图案生成器生成 · 可打印 · '+dateStr+'</div>\n';
+  reportHtml += '</div>\n</body>\n</html>';
+
+  var blob = new Blob([reportHtml], { type: 'text/html;charset=utf-8' });
+  var url = URL.createObjectURL(blob);
+  var w = window.open(url, '_blank');
+  if (w) {
+    w.focus();
+    showToast('📄 报表已在新窗口中生成');
+  } else {
+    var link = document.createElement('a');
+    link.download = 'mard_diy_report_' + dateStr.replace(/[: ]/g,'_') + '.html';
+    link.href = url;
+    link.click();
+    showToast('📄 报表已下载');
+  }
+}
+
+// Report button
+document.getElementById('diyBtnReport').addEventListener('click', generateReport);
 
 // Init converter
 updateInfo();
