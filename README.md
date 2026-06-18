@@ -10,8 +10,14 @@
 
 ### 方式一：在线使用（推荐）
 
-> 开启 GitHub Pages 后访问：
-> `https://lift-897.github.io/mard_bead_converter/`
+> 在线地址：`https://lift-897.github.io/mard_bead_converter/`
+
+> **如何开启 GitHub Pages（仓库拥有者操作）：**
+> 1. 打开仓库 → 顶部 **Settings** 标签
+> 2. 左侧菜单点击 **Pages**
+> 3. **Branch** 下拉选 `main`，目录选 `/ (root)`，点击 **Save**
+> 4. 等待 1-2 分钟，GitHub 会显示 `Your site is live at ...`
+> 5. 之后任何人访问上述地址即可使用
 
 ### 方式二：下载使用
 
