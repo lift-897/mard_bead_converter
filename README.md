@@ -83,11 +83,17 @@
 
 ## 📸 截图展示
 
+### 🏠 主界面
+![主界面](screenshots/main-screen.png)
+
 ### 图片转拼豆 —— 图案转换模式
 ![图案转换模式](screenshots/converter.png)
 
 ### DIY 自由创作模式
-![DIY自由创作模式](screenshots/diy.png)
+![DIY自由创作模式](screenshots/diy-screen.png)
+
+### DIY 创作效果示例
+![DIY创作示例](screenshots/diy.png)
 
 ---
 
