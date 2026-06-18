@@ -22,7 +22,7 @@
 ### 方式二：下载使用
 
 1. 点击仓库右上角绿色 **Code** 按钮 → **Download ZIP**
-2. 解压后双击打开 `mard_bead_converter.html`
+2. 解压后双击打开 `index.html`
 3. 无需安装任何软件，浏览器就能用
 
 ---
